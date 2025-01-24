@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import binascii
-import decode
+import decode_copy
 
 from tqdm import tqdm as tqdm
 
@@ -35,7 +35,7 @@ def decoder(title_string):
     strings=[a[2:-1] for a in f[:,1]]
     for i in strings:
         if heading_tester(i): #this step filters for the correct header byte: 'e0'
-            decode_object=decode.Decode(bytesperhit=8)
+            decode_object=decode_copy.Decode(bytesperhit=8)
             rawdata=list(binascii.unhexlify(i))
             list_hits=decode_object.hits_from_readoutstream(rawdata, reverse_bitorder=True)
             hits=decode_object.decode_astropix4_hits(list_hits)
