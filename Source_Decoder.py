@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import binascii
 import decode_copy
-import tools
+import tools_grant
 
 from tqdm import tqdm as tqdm
 
@@ -82,7 +82,7 @@ for k in range(round(lines/maxrows)):
     csv_name=str(f'{file_name}-{k}.csv')
     csvframe.to_csv(csv_name)
 
-all_csv=tools.extension_finder('.csv',directory_name)
+all_csv=tools_grant.extension_finder('.csv',directory_name)
 
 df_concat = pd.concat([pd.read_csv(f) for f in all_csv ], ignore_index=True) #this ignore_index is important so the dec_ord column isn't repeated
 
