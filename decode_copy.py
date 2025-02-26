@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """"""
-''' a copy of the decode.py file from the astropix_python git repository, with one dependency from that repository commented out '''
+''' a copy of the decode.py file from the astropix_python git repository, with one dependency from that repository commented out and changing 
+the return of the decode_astropix4_hits function to be a list instead of a pandas data frame'''
 """
 Created on Tue Dec 28 19:03:40 2021
 
@@ -195,5 +196,6 @@ class Decode:
                     id, payload, row, col, ts1, tsfine1, ts2, tsfine2, ts_dec1, ts_dec2, tot_us
                     )
 
-        return pd.DataFrame(hit_pd, columns=['id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2',
-                                             'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2','tot_us'])
+        #return pd.DataFrame(hit_pd, columns=['id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2',
+        #                                     'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2','tot_us'])
+        return hit_pd
