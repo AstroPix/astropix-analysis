@@ -24,6 +24,9 @@ def Filter_Function(String):
             Good_List=Good_List+Filter_Function(other_part)
     return Good_List
 
+def count_lines(filename):
+    with open(filename, 'r') as f:
+        return sum(1 for _ in f)
 
 full_file_name=input('Name of .log File: ')
 
@@ -31,12 +34,10 @@ full_file_name=input('Name of .log File: ')
 start_time=datetime.now()
 print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
 
-result=subprocess.run(['wc','-l',full_file_name],capture_output=True, text=True)
-output=result.stdout
 
-total_lines=int((output.removesuffix(f'{full_file_name}\n')))
+total_lines=count_lines(full_file_name)
 
-print(f'{result.stdout} \n Lines={total_lines}\n')
+print(f'{full_file_name} \n Lines={total_lines}\n')
 
 read_file=open(full_file_name,'r')
 
@@ -68,12 +69,11 @@ for line in read_file:
             if i!='':
                 good_split_bc.append(i)
 
-        if len(good_split_bc)>1: # this helps fix the split hit issue
-            if len(good_split_bc[-1])<16:
-                stored_split_first_part=good_split_bc[-1]
-                good_split_bc=good_split_bc[:-1]
-            else:
-                stored_split_first_part=None
+        if len(good_split_bc)>1 and len(good_split_bc[-1])<16: # this helps fix the split hit issue
+            stored_split_first_part=good_split_bc[-1]
+            good_split_bc=good_split_bc[:-1]
+        else:
+            stored_split_first_part=None
 
         all_filtered=[]
         for hit_string in good_split_bc:
