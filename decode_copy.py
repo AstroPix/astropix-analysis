@@ -143,7 +143,8 @@ class Decode:
                     id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, tot_us
                     )
 
-        return pd.DataFrame(hit_pd, columns=['readout','Chip ID','payload','location', 'isCol', 'timestamp', 'tot_msb','tot_lsb','tot_total', 'tot_us', 'hittime'])
+        # return pd.DataFrame(hit_pd, columns=['readout','Chip ID','payload','location', 'isCol', 'timestamp', 'tot_msb','tot_lsb','tot_total', 'tot_us', 'hittime'])
+        return hit_pd
 
     def decode_astropix4_hits(self, list_hits: list, printer:bool = False) -> pd.DataFrame:
         """

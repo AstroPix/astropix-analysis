@@ -1,6 +1,6 @@
 import binascii
 import decode_copy
-import decode
+import decode_copy
 import subprocess
 import tqdm
 from datetime import datetime
@@ -9,19 +9,27 @@ from datetime import datetime
 ''' this script takes the .log files of a source run and returns the .csv into the same directory 
 filtering function works to fix common issues seen with decoding raw lines from the .log file'''
 
-def Filter_Function(String):
+def Filter_Function(String,chip_version):
+    if chip_version==4:
+        header_string='e0'
+        characters_per_hit=16
+    elif chip_version==3:
+        header_string='20'
+        characters_per_hit=10
+
     Good_List=[]
-    if 16<=len(String)<=1000: # lower bound to filter out cutoff hits, upper bound to ignore the first few lines of a .log that are usually nonsense
-        if len(String)==16 and String[0:2]=='e0': # normal string decoding, looking for header byte 'e0'
+
+    if characters_per_hit<=len(String)<=1000: # lower bound to filter out cutoff hits, upper bound to ignore the first few lines of a .log that are usually nonsense
+        if len(String)==characters_per_hit and String[0:2]==header_string: # normal string decoding, looking for header byte 'e0'
             Good_List.append(String)
-        elif String[-16:-14]=='e0': # catches the case of two back to back hits in the same string with no 'bc' idle byte in between
-            good_part=String[-16:]  # this filter should also catch the case of one hit partially writing over another, leading the cutoff hit to get filtered out
+        elif String[-characters_per_hit:-(characters_per_hit-2)]==header_string: # catches the case of two back to back hits in the same string with no 'bc' idle byte in between
+            good_part=String[-characters_per_hit:]  # this filter should also catch the case of one hit partially writing over another, leading the cutoff hit to get filtered out
             Good_List.append(good_part)
-            other_part=String[:-16]
-            Good_List=Good_List+Filter_Function(other_part)
+            other_part=String[:-characters_per_hit]
+            Good_List=Good_List+Filter_Function(other_part,chip_version)
         elif String[-2:]=='bc': # catches the case of two hits in the same string with only one 'bc' idle byte in between
             other_part=String[:-2]
-            Good_List=Good_List+Filter_Function(other_part)
+            Good_List=Good_List+Filter_Function(other_part,chip_version)
     return Good_List
 
 def count_lines(filename):
@@ -29,7 +37,13 @@ def count_lines(filename):
         return sum(1 for _ in f)
 
 full_file_name=input('Name of .log File: ')
+version_number=int(input('AstroPix Version Number: '))
+if version_number==4:
+    Bytes_per_hit=8
+elif version_number==3:
+    Bytes_per_hit=5
 
+Characters_per_hit=2*Bytes_per_hit
 
 start_time=datetime.now()
 print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
@@ -43,7 +57,10 @@ read_file=open(full_file_name,'r')
 
 
 write_file=open(full_file_name.replace('.log','.csv'),'w')
-row_0_list=['dec_ord','id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2', 'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2', 'tot_us']
+if version_number==4:
+    row_0_list=['dec_ord','id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2', 'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2', 'tot_us']
+elif version_number==3:
+    row_0_list=['dec_ord','readout', 'Chip ID', 'payload', 'location', 'isCol', 'timestamp', 'tot_msb', 'tot_lsb', 'tot_total', 'tot_us']
 row_0_string=','.join(row_0_list)
 write_file.write(f'{row_0_string}\n')
 
@@ -69,7 +86,7 @@ for line in read_file:
             if i!='':
                 good_split_bc.append(i)
 
-        if len(good_split_bc)>1 and len(good_split_bc[-1])<16: # this helps fix the split hit issue
+        if len(good_split_bc)>1 and len(good_split_bc[-1])<Characters_per_hit: # this helps fix the split hit issue
             stored_split_first_part=good_split_bc[-1]
             good_split_bc=good_split_bc[:-1]
         else:
@@ -77,14 +94,17 @@ for line in read_file:
 
         all_filtered=[]
         for hit_string in good_split_bc:
-            all_filtered=all_filtered+Filter_Function(hit_string)
+            all_filtered=all_filtered+Filter_Function(hit_string, chip_version=version_number)
 
-        decode_object=decode.Decode(bytesperhit=8)
+        decode_object=decode_copy.Decode(bytesperhit=Bytes_per_hit)
         dec_order_counter=0
         for i in all_filtered:
             rawdata=list(binascii.unhexlify(i))
             list_hits=decode_object.hits_from_readoutstream(rawdata, reverse_bitorder=True)
-            decoded_hits_list=decode_object.decode_astropix4_hits(list_hits)
+            if version_number==4:
+                decoded_hits_list=decode_object.decode_astropix4_hits(list_hits)
+            elif version_number==3:
+                decoded_hits_list=decode_object.decode_astropix3_hits(list_hits)
             for hits_i in decoded_hits_list:
                 hits_i=[dec_order_counter]+hits_i
                 dec_order_counter+=1 # the correct implimentation of the dec_ord, counting up for each hit in a string
