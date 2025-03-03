@@ -69,6 +69,7 @@ stored_split_first_part=None
 
 progress_bar=tqdm.tqdm(total=total_lines)
 
+line_counter=0
 for line in read_file:
     progress_bar.update(1)
     if line[0].isdigit(): # the first character of a data line should be a digit, filters out the first  7 lines of config settings
@@ -104,12 +105,13 @@ for line in read_file:
             if version_number==4:
                 decoded_hits_list=decode_object.decode_astropix4_hits(list_hits)
             elif version_number==3:
-                decoded_hits_list=decode_object.decode_astropix3_hits(list_hits)
+                decoded_hits_list=decode_object.decode_astropix3_hits(list_hits,i=line_counter)
             for hits_i in decoded_hits_list:
                 hits_i=[dec_order_counter]+hits_i
                 dec_order_counter+=1 # the correct implimentation of the dec_ord, counting up for each hit in a string
                 write_string=','.join(str(x) for x in hits_i)
                 write_file.write(f'{write_string}\n')
+        line_counter+=1
 
 read_file.close()
 write_file.close()
