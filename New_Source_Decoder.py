@@ -105,7 +105,7 @@ for line in read_file:
             if version_number==4:
                 decoded_hits_list=decode_object.decode_astropix4_hits(list_hits)
             elif version_number==3:
-                decoded_hits_list=decode_object.decode_astropix3_hits(list_hits,i=line_counter)[:-1]
+                decoded_hits_list=decode_object.decode_astropix3_hits(list_hits,i=line_counter)
             for hits_i in decoded_hits_list:
                 hits_i=[dec_order_counter]+hits_i
                 dec_order_counter+=1 # the correct implimentation of the dec_ord, counting up for each hit in a string

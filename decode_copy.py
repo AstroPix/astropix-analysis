@@ -133,7 +133,8 @@ class Decode:
                 tot_total   = (tot_msb << 8) + tot_lsb
                 tot_us      = (tot_total * self._sampleclock_period_ns) / 1000.0
 
-                hit_pd.append([i,id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, tot_us, time.time()])
+                # hit_pd.append([i,id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, tot_us, time.time()])
+                hit_pd.append([i,id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, tot_us])
                 if printer:
                     logger.info(
                     "Header: ChipId: %d\tPayload: %d\t"
