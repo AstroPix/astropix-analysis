@@ -85,7 +85,10 @@ def main(args):
                 if i!='':
                     split_bc_strings.append(i)
 
-            if len(split_bc_strings)>1 and len(split_bc_strings[-1])<Characters_per_hit: # this helps fix the split hit issue
+            if version_number==4 and len(split_bc_strings)>1 and len(split_bc_strings[-1])<Characters_per_hit: # this helps fix the split hit issue
+                stored_split_first_part=split_bc_strings[-1]
+                split_bc_strings=split_bc_strings[:-1]
+            elif version_number==3 and len(split_bc_strings)>1 and len(split_bc_strings[-1])<(2*Characters_per_hit): # issue with one set of two hits being cutoff instead of one hit
                 stored_split_first_part=split_bc_strings[-1]
                 split_bc_strings=split_bc_strings[:-1]
             else:
