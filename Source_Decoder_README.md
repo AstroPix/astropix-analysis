@@ -1,7 +1,7 @@
 # Source Decoder README
 
 ## Document Structure
-- Examples in this README are given from AstroPix v4 data, the same principles are used when decoding v3 data as well, differences are specified in the respective v3 and v4 sections
+- Examples in this README are taken from AstroPix v4 data, the same principles are used when decoding v3 data as well, differences are specified in the respective v3 and v4 sections
 - A few terms are present that seem somewhat similar but mean different things in the context of this decoding.
 - A string of data (or just a string) is defined as one line in the .log file usually looking like\
 `2	b'bcbce01091fc044abf04bcbcbcbc...bcbcffff...ffff'`
@@ -42,4 +42,5 @@ issue with duplicate lines being read in, this also makes the decoding much fast
 ## AstroPix v3
 - For a chip ID of 0 and a payload of 4, the v3 header is `20` (payload is bytes per hit -1 )
 - There are 5 bytes per hit, which means there are 10 characters per hit
-- Because the row readout is seperate from the column readout, most "full hits" (a row followed and a column) are back to back, this doesn't cause any issues because of the second check in the filter function
+- Because the row readout is seperate from the column readout, most "full hits" (a row and a column) are back to back, this doesn't cause any issues because of the second check in the filter function
+- The above behavior of v3 (row hits and column hits usually not being seperated by any `bc` idle bytes) does impact how the split hit issue is addressed. Now, for v3 we are looking for anything less that 2 * characters_per_hit in the last hit of the string instead of just 1 * characters_per_hit as seen in v4
