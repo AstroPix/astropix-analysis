@@ -8,8 +8,7 @@
 - A hit of data (or just a hit) is defined as one packet of data that can be completely decoded resulting in information about the row, column, and time over threshold being human readable
 
 ## General Notes
-- Lines are read in one at a time instead of a large number at once as in previous versions to avoid 
-issue with duplicate lines being read in, this also makes the decoding much faster
+- Lines are read in one at a time instead of a large number at once as in previous versions to avoid issue with duplicate lines being read in, this also makes the decoding much faster
 - The first check is if the first character of a line is a digit, this avoids trying to decode the first 7 lines which are configuration information
 - We split on the string `ffff` instead of `ff` to avoid splitting on an `ff` that might randomly appear in a hit
 - We split on `bcbc` instead of the idle byte `bc` for the same reason
