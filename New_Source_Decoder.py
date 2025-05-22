@@ -36,6 +36,66 @@ def count_lines(filename):
     with open(filename, 'r') as file:
         return sum(1 for line in file)
 
+def Decode_and_Write_Line(line,stored_split_first_part,version_number,line_counter,write_file):
+    if line[0].isdigit():
+        if version_number==4:
+            Characters_per_hit=16
+            Bytes_per_hit=8
+        elif version_number==3:
+            Characters_per_hit=10
+            Bytes_per_hit=5
+
+        full_data_string = line.split('\t')[-1][2:-2]
+
+        no_ff_list=[]
+        for j in full_data_string.split('ffff'): 
+            if j != '':
+                no_ff_list.append(j)
+        no_ff_string=''.join(no_ff_list)
+        if stored_split_first_part is not None:
+            no_ff_string=stored_split_first_part+no_ff_string
+
+        split_bc_strings=[]
+        for i in no_ff_string.split('bcbc'): # splits on 'bcbc' idle bytes to avoid splitting on 'bc' that may appear in a hit
+            if i!='':
+                split_bc_strings.append(i)
+
+        if version_number==4 and len(split_bc_strings)>1 and len(split_bc_strings[-1])<Characters_per_hit: # this helps fix the split hit issue
+            stored_split_first_part=split_bc_strings[-1]
+            split_bc_strings=split_bc_strings[:-1]
+        elif version_number==3 and len(split_bc_strings)>1 and len(split_bc_strings[-1])<(2*Characters_per_hit): # issue with one set of two hits being cutoff instead of one hit
+            stored_split_first_part=split_bc_strings[-1]
+            split_bc_strings=split_bc_strings[:-1]
+        else:
+            stored_split_first_part=None
+
+        all_filtered_hits=[]
+        for one_string in split_bc_strings:
+            all_filtered_hits=all_filtered_hits+Filter_Function(one_string, chip_version=version_number)
+        
+        decode_object=decode_copy.Decode(bytesperhit=Bytes_per_hit)
+        decoded_hits_list_with_dec_ord=[]
+        dec_order_counter=0
+        if len(all_filtered_hits)>0:
+            for not_decoded_hit in all_filtered_hits:
+                rawdata=list(binascii.unhexlify(not_decoded_hit))
+                list_hits=decode_object.hits_from_readoutstream(rawdata, reverse_bitorder=True)
+                if version_number==4:
+                    decoded_hits_list=decode_object.decode_astropix4_hits(list_hits)
+                elif version_number==3:
+                    decoded_hits_list=decode_object.decode_astropix3_hits(list_hits,i=line_counter)
+                for decoded_hit in decoded_hits_list:
+                    decoded_hit=[dec_order_counter]+decoded_hit
+                    dec_order_counter+=1 # the correct implimentation of the dec_ord, counting up for each hit in a string
+                    write_string=','.join(str(x) for x in decoded_hit)
+                    write_file.write(f'{write_string}\n')
+                    decoded_hits_list_with_dec_ord.append(decoded_hit)
+            line_counter+=1
+
+            return decoded_hits_list_with_dec_ord, stored_split_first_part, line_counter
+        
+
+    
 def main(args):
 
     start_time=datetime.now()
@@ -70,49 +130,11 @@ def main(args):
     progress_bar=tqdm.tqdm(total=total_lines)
     line_counter=0
     for line in read_file:
-        progress_bar.update(1)
         if line[0].isdigit(): # the first character of a data line should be a digit, filters out the first  7 lines of config settings
-            full_data_string=line.split('\t')[-1][2:-2]
-            no_ff_list=[]
-            for j in full_data_string.split('ffff'): 
-                if j != '':
-                    no_ff_list.append(j)
-            no_ff_string=''.join(no_ff_list)
-            if stored_split_first_part is not None:
-                no_ff_string=stored_split_first_part+no_ff_string
-            split_bc_strings=[]
-            for i in no_ff_string.split('bcbc'): # splits on 'bcbc' idle bytes to avoid splitting on 'bc' that may appear in a hit
-                if i!='':
-                    split_bc_strings.append(i)
-
-            if version_number==4 and len(split_bc_strings)>1 and len(split_bc_strings[-1])<Characters_per_hit: # this helps fix the split hit issue
-                stored_split_first_part=split_bc_strings[-1]
-                split_bc_strings=split_bc_strings[:-1]
-            elif version_number==3 and len(split_bc_strings)>1 and len(split_bc_strings[-1])<(2*Characters_per_hit): # issue with one set of two hits being cutoff instead of one hit
-                stored_split_first_part=split_bc_strings[-1]
-                split_bc_strings=split_bc_strings[:-1]
-            else:
-                stored_split_first_part=None
-
-            all_filtered_hits=[]
-            for one_string in split_bc_strings:
-                all_filtered_hits=all_filtered_hits+Filter_Function(one_string, chip_version=version_number)
-
-            decode_object=decode_copy.Decode(bytesperhit=Bytes_per_hit)
-            dec_order_counter=0
-            for not_decoded_hit in all_filtered_hits:
-                rawdata=list(binascii.unhexlify(not_decoded_hit))
-                list_hits=decode_object.hits_from_readoutstream(rawdata, reverse_bitorder=True)
-                if version_number==4:
-                    decoded_hits_list=decode_object.decode_astropix4_hits(list_hits)
-                elif version_number==3:
-                    decoded_hits_list=decode_object.decode_astropix3_hits(list_hits,i=line_counter)
-                for decoded_hit in decoded_hits_list:
-                    decoded_hit=[dec_order_counter]+decoded_hit
-                    dec_order_counter+=1 # the correct implimentation of the dec_ord, counting up for each hit in a string
-                    write_string=','.join(str(x) for x in decoded_hit)
-                    write_file.write(f'{write_string}\n')
-            line_counter+=1
+            progress_bar.update(1)
+            Decode_and_Write_Line_Output=Decode_and_Write_Line(line,stored_split_first_part,version_number,line_counter,write_file)
+            if Decode_and_Write_Line_Output is not None:
+                decoded_hits, stored_split_first_part, line_counter = Decode_and_Write_Line_Output[0], Decode_and_Write_Line_Output[1], Decode_and_Write_Line_Output[2]
 
     read_file.close()
     write_file.close()

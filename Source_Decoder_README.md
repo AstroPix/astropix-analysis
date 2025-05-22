@@ -19,6 +19,7 @@
 `50	b'1303bcbce08ca0d508d28606bcbcbc...bcbce0d4b6470bd8cf01bcbcbcbcbcbcffffffff...`
 
 - Here the hit `e082a1170cd0` is seen at the end of the first string and the hit `1303` is at the beginning of the second. Neither of these are a complete hit of 16 characters, but are split from each other. When recombined, they form the complete hit `e082a1170cd01303` that is 16 characters. stored_split_first_part is used to check if the last hit in a string is less than 16 characters long, if it is, we save that hit and append it to the very front of the next string. 
+- The main decoding and writing portion was changed to be a function acting on one line at a time so it can be called in the live decoder, this shouldn't impact any performance in this script
 
 ## Filter Function 
 - The filter function first checks for the correct length of a hit, the lower bound is the intrinsic length of a hit (2 times the number of bytes per hit), the upper bound is arbitrarily set to 1000 to avoid trying to decode the first few strings of a source run that generally are not real data and just dumped by the fpga, they look something like this:

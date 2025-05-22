@@ -17,6 +17,9 @@
 - Using this list of indexes, we check to make sure all of them are 22 characters appart (the length of a complete string)
 - If they are less than 22 characters apart, we only include the second instance of `0a01` because we assume the first hit got written over by the second hit
 - Then the list of correct indexes is itterated over and the corresponding hits are passed through the decoding function with the decoding order and line number passed into the function too
+- The main decoding and writing portion was changed to be a function acting on one line at a time so it can be called in the live decoder, this shouldn't impact any performance in this script
+- For a binary data file, this is much simpler, we simply read in 1024 bytes at a time, look for the index of `0a01` in hex, check if they are 11 bytes apart, then act on the resulting strings of data
+- Choosing a binary input file is decided when running the file using the argparse package with arguement '-b'
 
 ## Decode Function 
 - This decoding function is built on top of the v3 decoding function found in astropix-python
