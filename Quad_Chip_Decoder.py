@@ -14,7 +14,7 @@ def decode_astep_hit(hit, i:int, dec_ord, printer:bool = False,is_bin=False):
             astep_header=int.from_bytes(hit[:1], 'big')
             layer_id=int.from_bytes(hit[1:2], 'big')
             v3_hit=hit[2:7]
-            fpga_time_stamp=int.from_bytes(hit[7:], 'big')
+            fpga_time_stamp=int.from_bytes(hit[7:], 'little')
 
 
         else:
