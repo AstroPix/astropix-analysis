@@ -197,7 +197,6 @@ def _set_rc_param(key: str, value: Any):
     is intended to work across different matplotlib versions. If a setting
     cannot be applied for whatever reason, this will happily move on.
     """
-    print(key, value)
     try:
         matplotlib.rcParams[key] = value
     except KeyError:
