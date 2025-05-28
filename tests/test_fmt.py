@@ -17,9 +17,10 @@
 """Unit tests for the fmt.py module.
 """
 
-import time
+import pytest
 
-from astropix_analysis.fmt import BitPattern, AstroPix4Readout
+from astropix_analysis.fmt import BitPattern, AstroPix4Readout, AbstractAstroPixReadout, \
+     AbstractAstroPixHit
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -56,7 +57,7 @@ def test_bit_pattern():
 def test_new_decoding():
     """Test the new decoding stuff.
     """
-    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, 0)
+    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id=0)
     print(readout)
     hits = readout.decode()
     assert len(hits) == 2
@@ -70,3 +71,26 @@ def test_new_decoding():
     assert hit0.tot_us == DECODED_DATA0[-1]
     assert (hit1.chip_id, hit1.payload, hit1.row, hit1.column) == DECODED_DATA1[0:4]
     assert hit1.tot_us == DECODED_DATA1[-1]
+
+
+def test_abc():
+    """Make sure we cannot instantiate the abstract base classes.
+    """
+    # Make sure classes derived from AbstractAstroPixReadout override _HIT_CLASS
+    with pytest.raises(TypeError) as info:
+        class Readout(AbstractAstroPixReadout):
+            pass
+    print(info.value)
+
+    # Make sure _HIT_CLASS is not abstract.
+    with pytest.raises(TypeError) as info:
+        class Readout(AbstractAstroPixReadout):
+            _HIT_CLASS = AbstractAstroPixHit
+    print(info.value)
+
+    # Make sure _HIT_CLASS is of the proper type.
+    with pytest.raises(TypeError) as info:
+        class Readout(AbstractAstroPixReadout):
+            _HIT_CLASS = float
+    print(info.value)
+
