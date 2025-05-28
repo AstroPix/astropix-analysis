@@ -14,6 +14,19 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+import json
+import struct
+import typing
+
+from loguru import logger
+
+from astropix_analysis.fmt import AstroPix4Hit
+
+
 class FileHeader:
 
     """Class describing a file header.
