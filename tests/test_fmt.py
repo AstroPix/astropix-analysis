@@ -58,7 +58,7 @@ def test_new_decoding():
     """
     trigger_id = 0
     timestamp = time.time_ns()
-    readout = AstroPix4Readout(trigger_id, timestamp, SAMPLE_READOUT_DATA)
+    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, trigger_id, timestamp)
     print(readout)
     hits = readout.decode()
     assert len(hits) == 2

@@ -85,7 +85,7 @@ def test_file_write_read():
     # Grab our test AstroPix4 hits.
     trigger_id = 0
     timestamp=time.time_ns()
-    readout = AstroPix4Readout(trigger_id, timestamp, SAMPLE_READOUT_DATA)
+    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, trigger_id, timestamp)
     hits = readout.decode()
     # Write the output file.
     kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)

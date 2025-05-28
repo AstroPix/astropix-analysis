@@ -19,6 +19,7 @@
 from __future__ import annotations
 from abc import ABC
 import struct
+import time
 import typing
 
 
@@ -335,7 +336,7 @@ class AbstractAstroPixReadout(ABC):
     """Abstract base class for a generic AstroPix readout.
 
     This is basically a wrapper around the bytearray object that is returned by
-    the NEXYS board, and it provides some basic functionality to write the readout
+    the DAQ board, and it provides some basic functionality to write the readout
     to a binary file.
 
     A full readout comes in the form of a fixed-length bytearray object that is
@@ -345,15 +346,15 @@ class AbstractAstroPixReadout(ABC):
 
     Arguments
     ---------
+    hit_data : bytearray
+        The readout data from the DAQ board.
+
     trigger_id : int
         A sequential id for the readout, assigned by the host DAQ machine.
 
     timestamp : int
         A timestamp for the readout, assigned by the host DAQ machine, in ns since
         the epoch, from time.time_ns().
-
-    data : bytearray
-        The readout data from the NEXYS board.
     """
 
     # The class representing the hit type encoded in the readout, e.g., ``AstroPix4Hit``.
@@ -375,13 +376,22 @@ class AbstractAstroPixReadout(ABC):
     _TIMESTAMP_FMT = '<Q'
     _LENGTH_FMT = '<L'
 
-    def __init__(self, trigger_id: int, timestamp: int, hit_data: bytearray) -> None:
+    def __init__(self, hit_data: bytearray, trigger_id: int, timestamp: int) -> None:
         """Constructor.
         """
+        # Strip all the trailing padding bytes from the input bytearray object
+        # and turn it into a bytes object to make it immutable.
+        self._hit_data = bytes(hit_data.rstrip(self.PADDING_BYTE))
         self.trigger_id = trigger_id
         self.timestamp = timestamp
-        # Strip all the trailing padding bytes from the input bytearray object.
-        self._hit_data = hit_data.rstrip(self.PADDING_BYTE)
+
+    @staticmethod
+    def latch_ns() -> int:
+        """Convenience function returning the time of the function call as an
+        integer number of nanoseconds since the epoch, i.e., January 1, 1970,
+        00:00:00 (UTC) on all platforms.
+        """
+        return time.time_ns()
 
     @staticmethod
     def read_and_unpack(input_file: typing.BinaryIO, fmt: str) -> typing.Any:
@@ -439,7 +449,7 @@ class AbstractAstroPixReadout(ABC):
         trigger_id = cls.read_and_unpack(input_file, cls._TRIGGER_ID_FMT)
         timestamp = cls.read_and_unpack(input_file, cls._TIMESTAMP_FMT)
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
-        return cls(trigger_id, timestamp, data)
+        return cls(data, trigger_id, timestamp)
 
     def decode(self, reverse: bool = True) -> list[AbstractAstroPixHit]:
         """Generic decoding function to be used by subclasses.
