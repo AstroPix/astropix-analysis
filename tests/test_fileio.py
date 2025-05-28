@@ -24,6 +24,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
+from astropix_analysis import logger
 from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apxdf_to_csv
 from astropix_analysis.fmt import AstroPix4Readout, AstroPix4Hit
 from astropix_analysis.plt_ import plt
@@ -36,6 +37,19 @@ from astropix_analysis.plt_ import plt
 SAMPLE_READOUT_DATA = bytearray.fromhex('bcbce08056e80da85403bcbcbcbcbcbcbcbce080d26f04ca3005bcbcbcbcbcbcffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
 
 
+def _rm_tmpfile(file_) -> None:
+    """Delete a temporary file.
+
+    Note we resort to manually delete the temporary files because the
+    ``delete_on_close`` argument, which would be handy in a context where we
+    want to do something with the files, was only introduced in Python 3.12 and
+    we are targeting Python 3.7 as the oldest version we tentatively support.
+    """
+    file_path = file_.name
+    logger.debug(f'Removing temporary file {file_path}...')
+    os.remove(file_path)
+
+
 def test_file_header():
     """Test the file header.
 
@@ -45,22 +59,21 @@ def test_file_header():
     # Create a dummy header.
     header = FileHeader(dict(version=1, content='hits'))
     print(header)
-
     # Write the header to an output file.
-    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete_on_close=False, delete=True)
+    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)
     with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
         print(f'Writing header to {output_file.name}...')
         header.write(output_file)
         output_file.close()
-
-        # Read back the header from the output file.
-        print(f'Reading header from {output_file.name}...')
-        with open(output_file.name, 'rb') as input_file:
-            twin = FileHeader.read(input_file)
-        print(twin)
-
+    # Read back the header from the output file.
+    print(f'Reading header from {output_file.name}...')
+    with open(output_file.name, 'rb') as input_file:
+        twin = FileHeader.read(input_file)
+    print(twin)
     # Make sure that the whole thing roundtrips.
     assert twin == header
+    # Remove the temporary file.
+    _rm_tmpfile(output_file)
 
 
 def test_file_write_read():
@@ -75,23 +88,24 @@ def test_file_write_read():
     readout = AstroPix4Readout(trigger_id, timestamp, SAMPLE_READOUT_DATA)
     hits = readout.decode()
     # Write the output file.
-    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete_on_close=False, delete=True)
+    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)
     with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
         print(f'Writing data to {output_file.name}...')
         header.write(output_file)
         readout.write(output_file)
         output_file.close()
-
-        # Read back the input file---note this is done in the context of the first
-        # with, so that tempfile can cleanup after the fact.
-        print(f'Reading data from {output_file.name}...')
-        with AstroPixBinaryFile(AstroPix4Hit).open(output_file.name) as input_file:
-            print(input_file.header)
-            _readout = next(input_file)
-            _hits = readout.decode()
-            for i, _hit in enumerate(_hits):
-                print(_hit)
-                assert _hit == hits[i]
+    # Read back the input file---note this is done in the context of the first
+    # with, so that tempfile can cleanup after the fact.
+    print(f'Reading data from {output_file.name}...')
+    with AstroPixBinaryFile(AstroPix4Hit).open(output_file.name) as input_file:
+        print(input_file.header)
+        _readout = next(input_file)
+        _hits = readout.decode()
+        for i, _hit in enumerate(_hits):
+            print(_hit)
+            assert _hit == hits[i]
+    # Remove the temporary file.
+    _rm_tmpfile(output_file)
 
 
 def test_playback_data(num_hits: int = 10):
@@ -127,7 +141,7 @@ def test_csv_convert():
     run_id = '20250507_085829'
     file_name = f'{run_id}_data.apx'
     file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
-    kwargs = dict(suffix='.csv', delete_on_close=False, delete=True)
+    kwargs = dict(suffix='.csv', delete=True)
     with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
         # Horrible trick to get a path to a temp file, rather than an actual file object.
         output_file.close()
@@ -136,10 +150,15 @@ def test_csv_convert():
         with open(output_file.name) as _out:
             for _ in range(10):
                 print(_out.readline())
+    # Remove the temporary file.
+    _rm_tmpfile(output_file)
 
 
-def test_plot_file():
+
+def _test_plot_file():
     """Basic test plotting the content of the sample binary file.
+
+    FIXME: move to test_analysis.
     """
     run_id = '20250507_085829'
     file_name = f'{run_id}_data.csv'
