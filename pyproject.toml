@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "astropix-analysis"
-version = "N/A"
+version = "0.0.0"
 dependencies = [
   "loguru",
   "numpy",
