@@ -13,19 +13,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-"""Basic packet description for the astropix chips.
+"""Data format description for the astropix chip.
 """
 
 from __future__ import annotations
-
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
-import json
+from abc import ABC
 import struct
 import typing
-
-from loguru import logger
 
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
@@ -139,7 +133,8 @@ class AbstractAstroPixHit(ABC):
         num_bits = sum(layout.values())
         size, reminder = divmod(num_bits, 8)
         if reminder != 0:
-            raise RuntimeError(f'Invalid layout {layout}: size in bit ({num_bits}) is not a multiple of 8')
+            raise RuntimeError(f'Invalid layout {layout}: size in bit ({num_bits}) '
+                               'is not a multiple of 8')
         return size
 
     @staticmethod
@@ -214,12 +209,12 @@ class AbstractAstroPixHit(ABC):
         return f'{separator.join(vals)}\n'
 
     @classmethod
-    def text_header(cls, attrs=None, separator=',') -> str:
+    def text_header(cls, attrs=None, separator: str = ',') -> str:
         """Return a proper header for a text file representing a list of hits.
         """
         if attrs is None:
             attrs = cls._ATTRIBUTES
-        return ','.join(attrs)
+        return separator.join(attrs)
 
     def to_csv(self, attrs=None) -> str:
         """Return the hit representation in csv format.
@@ -266,6 +261,7 @@ class AstroPix3Hit(AbstractAstroPixHit):
     def __init__(self, data: bytearray) -> None:
         """Constructor.
         """
+        # pylint: disable=no-member
         super().__init__(data)
         # Calculate the TOT in physical units.
         self.tot = (self.tot_msb << 8) + self.tot_lsb
@@ -291,7 +287,8 @@ class AstroPix4Hit(AbstractAstroPixHit):
         'ts_fine2': 3,
         'ts_tdc2': 5
     }
-    _ATTRIBUTES = tuple(_LAYOUT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
+    _ATTRIBUTES = tuple(_LAYOUT.keys()) + \
+        ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
     SIZE = AbstractAstroPixHit._calculate_size(_LAYOUT)
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
@@ -299,6 +296,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
     def __init__(self, data: bytearray, trigger_id: int = None, timestamp: int = None) -> None:
         """Constructor.
         """
+        # pylint: disable=no-member
         super().__init__(data)
         # Calculate the values of the two timestamps in clock cycles.
         self.ts_dec1 = self._compose_ts(self.ts_coarse1, self.ts_fine1)
@@ -468,6 +466,7 @@ class AbstractAstroPixReadout(ABC):
         reverse : bool (default True)
             If True, the bit order within each byte is reversed.
         """
+        # pylint: disable=not-callable
         hits = []
         pos = 0
         while pos < len(self._hit_data):
@@ -498,5 +497,3 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     """
 
     HIT_CLASS = AstroPix4Hit
-
-

@@ -13,17 +13,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""File I/O for the astropix chip.
+"""
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import json
 import struct
 import typing
 
-from loguru import logger
-
+from astropix_analysis import logger
 from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout
 
 
@@ -126,6 +126,7 @@ class AstroPixBinaryFile:
         """Constructor.
         """
         self._hit_class = hit_class
+        self.header = None
         self._input_file = None
 
     @contextmanager
@@ -170,13 +171,15 @@ def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
         output_file_path = file_path.replace('.apx', default_extension)
     logger.info(f'Converting {file_path} file to {output_file_path}...')
     with AstroPixBinaryFile(hit_class).open(file_path) as input_file, \
-        open(output_file_path, open_mode) as output_file:
+         open(output_file_path, open_mode) as output_file:
         if header is not None:
             output_file.write(header)
-        for i, readout in enumerate(input_file):
+        num_hits = 0
+        for readout in input_file:
             for hit in readout.decode():
                 output_file.write(converter(hit))
-    logger.info(f'Done, {i + 1} hit(s) written')
+                num_hits += 1
+    logger.info(f'Done, {num_hits} hit(s) written')
     return output_file_path
 
 
@@ -185,4 +188,5 @@ def apxdf_to_csv(file_path: str, hit_class: type = AstroPix4Hit,
     """Convert an AstroPix binary file to csv.
     """
     header = f'# {AstroPix4Hit.text_header()}\n'
-    return _convert_apxdf(file_path, hit_class, hit_class.to_csv, header, output_file_path, 'w', '.csv')
+    return _convert_apxdf(file_path, hit_class, hit_class.to_csv, header,
+                          output_file_path, 'w', '.csv')
