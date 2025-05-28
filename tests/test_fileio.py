@@ -83,9 +83,7 @@ def test_file_write_read():
     header = FileHeader(dict(version=1, content='hits'))
     print(header)
     # Grab our test AstroPix4 hits.
-    readout_id = 0
-    timestamp=time.time_ns()
-    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id, timestamp)
+    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, 0)
     hits = readout.decode()
     # Write the output file.
     kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)

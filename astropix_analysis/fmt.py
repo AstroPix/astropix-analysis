@@ -376,14 +376,17 @@ class AbstractAstroPixReadout(ABC):
     _TIMESTAMP_FMT = '<Q'
     _LENGTH_FMT = '<L'
 
-    def __init__(self, hit_data: bytearray, readout_id: int, timestamp: int) -> None:
+    def __init__(self, hit_data: bytearray, readout_id: int, timestamp: int = None) -> None:
         """Constructor.
         """
+        # If the timestamp is None, automatically latch the system time.
+        # Note this is done first in order to latch the timestamp as close as
+        # possible to the actual readout.
+        self.timestamp = self.latch_ns() if timestamp is None else timestamp
         # Strip all the trailing padding bytes from the input bytearray object
         # and turn it into a bytes object to make it immutable.
         self._hit_data = bytes(hit_data.rstrip(self.PADDING_BYTE))
         self.readout_id = readout_id
-        self.timestamp = timestamp
 
     @staticmethod
     def latch_ns() -> int:

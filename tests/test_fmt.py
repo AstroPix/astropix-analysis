@@ -56,9 +56,7 @@ def test_bit_pattern():
 def test_new_decoding():
     """Test the new decoding stuff.
     """
-    readout_id = 0
-    timestamp = time.time_ns()
-    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id, timestamp)
+    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, 0)
     print(readout)
     hits = readout.decode()
     assert len(hits) == 2
