@@ -99,13 +99,47 @@ class :class:`~astropix_analysis.fmt.AstroPix4Readout`
 shows in fact that the only thing you really need to do is to redefine the
 ``_HIT_CLASS`` class variable, setting it to the proper type describing the hit
 objects that the readout include. Note that ``_HIT_CLASS`` should be a concrete
-subclass of :class:`~astropix_analysis.fmt.AbstractAstroPixHit`.
-(The abstract base class has ``_HIT_CLASS = None`` and therefore should not be
-instantiated.)
+subclass of :class:`~astropix_analysis.fmt.AbstractAstroPixHit`; this ensures that
+any class instance is able to decode itself. (The abstract base class has
+``_HIT_CLASS = None`` and therefore should not be instantiated.)
 
 
+Hit structures
+--------------
 
+Likewise, all concrete hit classes derive from :class:`~astropix_analysis.fmt.AbstractAstroPixHit`,
+although defining concrete subclasses is slightly more complex in this case, as
+a the following definition shows.
 
+.. literalinclude:: ../astropix_analysis/fmt.py
+   :pyobject: AstroPix4Hit
+
+At the very minimum you have to:
+
+* override the ``_LAYOUT`` class variable: this is a dictionary mapping the name
+  of the fields within each hit frame to their width in bits (it goes without
+  saying that the fields might be defined in the same order they occur in the
+  frame);
+* override the ``_ATTRIBUTES`` class variable, which generally includes all the
+  fields defined in the ``_LAYOUT``, plus any additional quantity that is
+  calculated from the aforementioned fields when the class is instantiated;
+* override the ``SIZE`` class variable with the overall size of the overall hit
+  frame in bytes.
+
+.. note::
+
+   The ``SIZE`` class variable can be in principle calculated from the ``_LAYOUT``
+   by just summing up all the field widths, and in fact the
+   :meth:`~astropix_analysis.fmt.AbstractAstroPixHit._calculate_size()` static
+   method does just that, but we need the cope with the nuisance of having to type
+   the boilerplate line
+
+   .. code-block:: python
+
+      SIZE = AbstractAstroPixHit._calculate_size(_LAYOUT)
+
+   each time in the class definition in order to not recalculate the same thing
+   at runtime over and over again for each class instance.
 
 
 Module documentation
