@@ -154,32 +154,23 @@ def test_csv_convert():
     _rm_tmpfile(output_file)
 
 
+# def test_plot_file():
+#     """Basic test plotting the content of the sample binary file.
 
-def _test_plot_file():
-    """Basic test plotting the content of the sample binary file.
+#     FIXME: move to test_analysis.
+#     """
+#     run_id = '20250507_085829'
+#     file_name = f'{run_id}_data.csv'
+#     file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
+#     chip_id, payload, row, column, ts_neg1, ts_coarse1, ts_fine1, ts_tdc1, ts_neg2, \
+#         ts_coarse2, ts_fine2, ts_tdc2, ts_dec1, ts_dec2, tot_us, trigger_id, timestamp = \
+#         np.loadtxt(file_path, delimiter=',', unpack=True)
+#     dt = np.diff(timestamp) / 1.e6
 
-    FIXME: move to test_analysis.
-    """
-    run_id = '20250507_085829'
-    file_name = f'{run_id}_data.csv'
-    file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
-    chip_id, payload, row, column, ts_neg1, ts_coarse1, ts_fine1, ts_tdc1, ts_neg2, \
-        ts_coarse2, ts_fine2, ts_tdc2, ts_dec1, ts_dec2, tot_us, trigger_id, timestamp = \
-        np.loadtxt(file_path, delimiter=',', unpack=True)
-    dt = np.diff(timestamp) / 1.e6
+#     plt.figure('TOT')
+#     plt.hist(tot_us, bins=25)
+#     plt.xlabel('TOT [$\\mu$s]')
 
-    plt.figure('TOT')
-    plt.hist(tot_us, bins=25)
-    plt.xlabel('TOT [$\\mu$s]')
-
-    plt.figure('Time differences')
-    plt.hist(dt, bins=25)
-    plt.xlabel('$\\Delta$T [ms]')
-
-
-
-
-
-if __name__ == '__main__':
-    test_plot_file()
-    plt.show()
+#     plt.figure('Time differences')
+#     plt.hist(dt, bins=25)
+#     plt.xlabel('$\\Delta$T [ms]')

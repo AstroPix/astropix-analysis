@@ -1,6 +1,7 @@
 all: ruff flake lint
 
 flake:
+	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 	flake8 astropix_analysis --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
 
 ruff:
@@ -15,8 +16,7 @@ lint:
 		--disable c-extension-no-member \
 		--disable use-dict-literal \
 		--disable too-many-positional-arguments \
-		--disable too-many-public-methods \
-		--ignore _version.py
+		--disable too-many-public-method
 
 test:
 	python -m pytest tests -s
