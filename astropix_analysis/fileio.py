@@ -24,7 +24,7 @@ import typing
 
 from loguru import logger
 
-from astropix_analysis.fmt import AstroPix4Hit
+from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout
 
 
 class FileHeader:
@@ -168,7 +168,7 @@ def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
     """
     if output_file_path is None and default_extension is not None:
         output_file_path = file_path.replace('.apx', default_extension)
-    logger.info(f'Converting AstroPix file to {output_file_path}...')
+    logger.info(f'Converting {file_path} file to {output_file_path}...')
     with AstroPixBinaryFile(hit_class).open(file_path) as input_file, \
         open(output_file_path, open_mode) as output_file:
         if header is not None:
