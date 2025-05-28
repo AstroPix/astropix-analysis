@@ -25,7 +25,7 @@ copyright = '2025, The astropix team'
 author = 'The astropix team'
 
 # The full version, including alpha/beta/rc tags
-release = 'not assigned'
+release = 'N/A'
 
 
 # -- General configuration ---------------------------------------------------

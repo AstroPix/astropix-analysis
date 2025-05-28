@@ -6,12 +6,17 @@
 astropix-analysis documentation
 ===============================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+This repository contains a number of facilities relevant for the aquisition,
+decoding, manipulation and analysis of astropix data.
+
+(Admittedly, the scope of the repo is not well defined, yet, and you should not
+expect things around here to be stable. You will also notice that the documentation
+is fairly sparse.)
 
 
 .. toctree::
    :maxdepth: 2
 
+   install
+   develop
    api
