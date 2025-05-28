@@ -84,10 +84,10 @@ class AbstractAstroPixHit(ABC):
       in the _LAYOUT dictionary, and, possibly, additional strings for class member
       defined in the constructor---this is used to control the string formatting
       and the file I/O;
-    * explicitely calculate the size (in bytes) of the hit structure. This can
+    * explicitly calculate the size (in bytes) of the hit structure. This can
       be done by summing up the widths of the fields in _LAYOUT, and the staticmethod
       ``_calculate_size()`` does just that. (Note this could be automatically done
-      at runtime, but since for simple, fixed-width hit strutures this is the same
+      at runtime, but since for simple, fixed-width hit structures this is the same
       for all the instances, it seemed more natural to accept the nuisance of doing
       that in the class definition, avoiding the overhead that would be implied by
       doing that over and over again for each object.)
