@@ -289,12 +289,12 @@ class AstroPix4Hit(AbstractAstroPixHit):
         'ts_tdc2': 5
     }
     _ATTRIBUTES = tuple(_LAYOUT.keys()) + \
-        ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
+        ('ts_dec1', 'ts_dec2', 'tot_us', 'readout_id', 'timestamp')
     SIZE = AbstractAstroPixHit._calculate_size(_LAYOUT)
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: int = None) -> None:
+    def __init__(self, data: bytearray, readout_id: int = None, timestamp: int = None) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
@@ -307,7 +307,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
             self.ts_dec2 += self.CLOCK_ROLLOVER
         # Calculate the actual TOT in us.
         self.tot_us = (self.ts_dec2 - self.ts_dec1) / self.CLOCK_CYCLES_PER_US
-        self.trigger_id = trigger_id
+        self.readout_id = readout_id
         self.timestamp = timestamp
 
     @staticmethod
@@ -349,7 +349,7 @@ class AbstractAstroPixReadout(ABC):
     hit_data : bytearray
         The readout data from the DAQ board.
 
-    trigger_id : int
+    readout_id : int
         A sequential id for the readout, assigned by the host DAQ machine.
 
     timestamp : int
@@ -372,17 +372,17 @@ class AbstractAstroPixReadout(ABC):
     _HEADER_SIZE = len(_HEADER)
 
     # Basic bookkeeping for the additional fields assigned by the host machine.
-    _TRIGGER_ID_FMT = '<L'
+    _READOUT_ID_FMT = '<L'
     _TIMESTAMP_FMT = '<Q'
     _LENGTH_FMT = '<L'
 
-    def __init__(self, hit_data: bytearray, trigger_id: int, timestamp: int) -> None:
+    def __init__(self, hit_data: bytearray, readout_id: int, timestamp: int) -> None:
         """Constructor.
         """
         # Strip all the trailing padding bytes from the input bytearray object
         # and turn it into a bytes object to make it immutable.
         self._hit_data = bytes(hit_data.rstrip(self.PADDING_BYTE))
-        self.trigger_id = trigger_id
+        self.readout_id = readout_id
         self.timestamp = timestamp
 
     @staticmethod
@@ -416,7 +416,7 @@ class AbstractAstroPixReadout(ABC):
             A file object opened in "wb" mode.
         """
         output_file.write(self._HEADER)
-        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
+        output_file.write(struct.pack(self._READOUT_ID_FMT, self.readout_id))
         output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
         output_file.write(struct.pack(self._LENGTH_FMT, len(self._hit_data)))
         output_file.write(self._hit_data)
@@ -446,10 +446,10 @@ class AbstractAstroPixReadout(ABC):
         if _header != cls._HEADER:
             raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
         # Go ahead, read all the fields, and create the AstroPix4Readout object.
-        trigger_id = cls.read_and_unpack(input_file, cls._TRIGGER_ID_FMT)
+        readout_id = cls.read_and_unpack(input_file, cls._READOUT_ID_FMT)
         timestamp = cls.read_and_unpack(input_file, cls._TIMESTAMP_FMT)
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
-        return cls(data, trigger_id, timestamp)
+        return cls(data, readout_id, timestamp)
 
     def decode(self, reverse: bool = True) -> list[AbstractAstroPixHit]:
         """Generic decoding function to be used by subclasses.
@@ -488,7 +488,7 @@ class AbstractAstroPixReadout(ABC):
             # If necessary, reverse the bit order in the hit data.
             if reverse:
                 hit_data = reverse_bit_order(hit_data)
-            hits.append(self.HIT_CLASS(hit_data, self.trigger_id, self.timestamp))
+            hits.append(self.HIT_CLASS(hit_data, self.readout_id, self.timestamp))
             pos += self.HIT_CLASS.SIZE
             while self._hit_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
@@ -498,7 +498,7 @@ class AbstractAstroPixReadout(ABC):
         """String formatting.
         """
         return f'{self.__class__.__name__}({len(self._hit_data)} bytes, ' \
-               f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
+               f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
 
 
 class AstroPix4Readout(AbstractAstroPixReadout):
