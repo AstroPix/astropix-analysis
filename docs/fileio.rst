@@ -40,9 +40,9 @@ can be read back in the succinct form
 
 .. code-block:: python
 
-   from astropix_analysis.fmt import AstroPixBinaryFile, AstroPix4Hit
+   from astropix_analysis.fmt import AstroPixBinaryFile, AstroPix4Readout
 
-   with AstroPixBinaryFile(AstroPix4Hit).open('path/to/my/file.apx') as input_file:
+   with AstroPixBinaryFile(AstroPix4Readout).open('path/to/my/file.apx') as input_file:
        # Note the header is automatically read and de-serialized.
        print(input_file.header)
 
@@ -53,8 +53,6 @@ can be read back in the succinct form
                print(hit)
 
 
-
-
 File format
 -----------
 
@@ -63,10 +61,14 @@ The basic astropix file format is defined as a binary stream, where a
 is followed by a text header (both encoded in UTF-8) and then by the bulk of
 binary data. More specifically we have
 
-* a magic number, provisionally set to ``%APXDF`` (the pdf format, e.g., uses ``%PDF``);
+* a magic number, provisionally set to ``%APXDF`` (the pdf format, e.g., uses ``%PDF``),
+  which can be used to determine whether a given file is an astropix binary file
+  by just peeking at it;
 * a single integer representing the length of the following (variable-size) part
-  of the header;
-* an arbitrary set of information, json encoded;
+  of the header, which is necessary to be able to parse the header and place the
+  pointer to the current position within the file to the right place to start
+  iterating over the readout objects;
+* the actual header, in the form of an arbitrary set of information, json encoded;
 * a sequence of readout objects, written as binary data.
 
 
@@ -78,6 +80,11 @@ File header
 
 .. literalinclude:: ../astropix_analysis/fileio.py
    :pyobject: FileHeader.read
+
+
+
+File object
+-----------
 
 
 Module documentation
