@@ -54,7 +54,7 @@ class FileHeader:
         The header content.
     """
 
-    MAGIC_WORD = '%APXDF'
+    MAGIC_NUMBER = '%APXDF'
     _HEADER_LENGTH_FMT = 'I'
     ENCODING = 'utf-8'
 
@@ -71,8 +71,8 @@ class FileHeader:
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        output_file.write(self.MAGIC_WORD.encode(self.ENCODING))
         data = json.dumps(self._content).encode(self.ENCODING)
+        output_file.write(self.MAGIC_NUMBER.encode(self.ENCODING))
         output_file.write(struct.pack(self._HEADER_LENGTH_FMT, len(data)))
         output_file.write(data)
 
@@ -85,9 +85,9 @@ class FileHeader:
         input_file : BinaryIO
             A file object opened in "rb" mode.
         """
-        magic = input_file.read(len(cls.MAGIC_WORD)).decode(cls.ENCODING)
-        if magic != cls.MAGIC_WORD:
-            raise RuntimeError(f'Invalid magic word ({magic}), expected {cls.MAGIC_WORD}')
+        magic = input_file.read(len(cls.MAGIC_NUMBER)).decode(cls.ENCODING)
+        if magic != cls.MAGIC_NUMBER:
+            raise RuntimeError(f'Invalid magic word ({magic}), expected {cls.MAGIC_NUMBER}')
         header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
         header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
         content = json.loads(input_file.read(header_length).decode(cls.ENCODING))
