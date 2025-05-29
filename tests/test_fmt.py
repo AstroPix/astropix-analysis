@@ -73,6 +73,13 @@ def test_new_decoding():
     assert hit1.tot_us == DECODED_DATA1[-1]
 
 
+def test_hit():
+    readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id=0)
+    hit, _  = readout.decode()
+    print(hit)
+    print(hit.text_header())
+    print(hit.to_csv())
+
 def test_abc():
     """Make sure we cannot instantiate the abstract base classes.
     """
