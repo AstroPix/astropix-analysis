@@ -294,7 +294,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, readout_id: int = None, timestamp: int = None) -> None:
+    def __init__(self, data: bytearray, readout_id: int, timestamp: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
@@ -346,7 +346,7 @@ class AbstractAstroPixReadout(ABC):
 
     Arguments
     ---------
-    hit_data : bytearray
+    readout_data : bytearray
         The readout data from the DAQ board.
 
     readout_id : int
@@ -376,7 +376,8 @@ class AbstractAstroPixReadout(ABC):
     _TIMESTAMP_FMT = '<Q'
     _LENGTH_FMT = '<L'
 
-    def __init__(self, hit_data: bytearray, readout_id: int, timestamp: int = None) -> None:
+    def __init__(self, readout_data: bytearray, readout_id: int,
+                 timestamp: int = None) -> None:
         """Constructor.
         """
         # If the timestamp is None, automatically latch the system time.
@@ -385,7 +386,7 @@ class AbstractAstroPixReadout(ABC):
         self.timestamp = self.latch_ns() if timestamp is None else timestamp
         # Strip all the trailing padding bytes from the input bytearray object
         # and turn it into a bytes object to make it immutable.
-        self._hit_data = bytes(hit_data.rstrip(self.PADDING_BYTE))
+        self._readout_data = bytes(readout_data.rstrip(self.PADDING_BYTE))
         self.readout_id = readout_id
 
     def __init_subclass__(cls):
@@ -436,8 +437,8 @@ class AbstractAstroPixReadout(ABC):
         output_file.write(self._HEADER)
         output_file.write(struct.pack(self._READOUT_ID_FMT, self.readout_id))
         output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
-        output_file.write(struct.pack(self._LENGTH_FMT, len(self._hit_data)))
-        output_file.write(self._hit_data)
+        output_file.write(struct.pack(self._LENGTH_FMT, len(self._readout_data)))
+        output_file.write(self._readout_data)
 
     @classmethod
     def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
@@ -497,25 +498,25 @@ class AbstractAstroPixReadout(ABC):
         # pylint: disable=not-callable
         hits = []
         pos = 0
-        while pos < len(self._hit_data):
+        while pos < len(self._readout_data):
             # Skip the idle bytes---note we need to address the input buffer with
             # a proper slice, otherwise we get an int.
-            while self._hit_data[pos:pos + 1] == self.IDLE_BYTE:
+            while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
-            hit_data = self._hit_data[pos:pos + self._HIT_CLASS.SIZE]
+            data = self._readout_data[pos:pos + self._HIT_CLASS.SIZE]
             # If necessary, reverse the bit order in the hit data.
             if reverse:
-                hit_data = reverse_bit_order(hit_data)
-            hits.append(self._HIT_CLASS(hit_data, self.readout_id, self.timestamp))
+                data = reverse_bit_order(data)
+            hits.append(self._HIT_CLASS(data, self.readout_id, self.timestamp))
             pos += self._HIT_CLASS.SIZE
-            while self._hit_data[pos:pos + 1] == self.IDLE_BYTE:
+            while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
         return hits
 
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({len(self._hit_data)} bytes, ' \
+        return f'{self.__class__.__name__}({len(self._readout_data)} bytes, ' \
                f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
 
 
