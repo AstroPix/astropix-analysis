@@ -103,6 +103,30 @@ subclass of :class:`~astropix_analysis.fmt.AbstractAstroPixHit`; this ensures th
 any class instance is able to decode itself. (The abstract base class has
 ``_HIT_CLASS = None`` and therefore should not be instantiated.)
 
+The class constructor
+
+.. literalinclude:: ../astropix_analysis/fmt.py
+   :pyobject: AbstractAstroPixReadout.__init__
+
+accepts three arguments, namely:
+
+* the underlying binary data, coming from the DAQ board;
+* a readout identifier, that is generally assigned by the host machine with the
+  data acquisition event loop;
+* a timestamp, also assigned by the host machine, expressed as nanoseconds since
+  the epoch (January 1, 1970, 00:00:00 (UTC)).
+
+When instantiating readout object programmatically (e.g., in the data acquisition
+event loop), you typically can omit the ``timestamp`` argument, as the latter
+gets automatically latched within the class constructor, i.e.
+
+.. code-block:: python
+
+   readout = AstroPix4Readout(readout_data, readout_id)
+
+On the other hand, when a readout object is read back from file, the signature with
+all three parameters is obviously used.
+
 
 Hit structures
 --------------
@@ -140,6 +164,15 @@ At the very minimum you have to:
 
    each time in the class definition in order to not recalculate the same thing
    at runtime over and over again for each class instance.
+
+The layout machinery is designed to avoid addressing the underlying binary data
+with hard-coded indices and make it easier to reason about the hist structure.
+It leverages under the hood the small convenience class
+:class:`~astropix_analysis.fmt.BitPattern`.
+
+Hit objects come equipped with all the facilities to represent themselves in
+different formats, including, e.g., text and comma-separated values.
+
 
 
 Module documentation
