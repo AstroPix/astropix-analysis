@@ -173,6 +173,20 @@ It leverages under the hood the small convenience class
 Hit objects come equipped with all the facilities to represent themselves in
 different formats, including, e.g., text and comma-separated values.
 
+.. code-block:: python
+
+    print(hit)
+    AstroPix4Hit(chip_id=0, payload=7, row=0, column=5, ts_neg1=1, ts_coarse1=5167,
+                 ts_fine1=3, ts_tdc1=0, ts_neg2=0, ts_coarse2=5418, ts_fine2=6,
+                 ts_tdc2=0, ts_dec1=49581, ts_dec2=52836, tot_us=162.75, readout_id=0,
+                 timestamp=1748518075318049813)
+
+    print(hit.text_header())
+    chip_id,payload,row,column,ts_neg1,ts_coarse1,ts_fine1,ts_tdc1,ts_neg2,ts_coarse2,ts_fine2,ts_tdc2,ts_dec1,ts_dec2,tot_us,readout_id,timestamp
+
+    print(hit.to_csv())
+    0,7,0,5,1,5167,3,0,0,5418,6,0,49581,52836,162.75,0,1748518075318049813
+
 
 
 Module documentation
