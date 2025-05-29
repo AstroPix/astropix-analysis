@@ -1,5 +1,5 @@
 .. _install:
 
-Installation and usage
-======================
+Installation
+============
 

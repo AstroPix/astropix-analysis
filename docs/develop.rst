@@ -2,3 +2,18 @@
 
 Development
 ===========
+
+
+
+Linting
+-------
+
+
+
+Unit tests
+----------
+
+
+
+Documentation
+-------------
