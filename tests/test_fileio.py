@@ -95,7 +95,7 @@ def test_file_write_read():
     # Read back the input file---note this is done in the context of the first
     # with, so that tempfile can cleanup after the fact.
     print(f'Reading data from {output_file.name}...')
-    with AstroPixBinaryFile(AstroPix4Hit).open(output_file.name) as input_file:
+    with AstroPixBinaryFile(AstroPix4Readout).open(output_file.name) as input_file:
         print(input_file.header)
         _readout = next(input_file)
         _hits = readout.decode()
@@ -115,7 +115,7 @@ def test_playback_data(num_hits: int = 10):
     run_id = '20250507_085829'
     file_name = f'{run_id}_data.apx'
     file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
-    with AstroPixBinaryFile(AstroPix4Hit).open(file_path) as input_file:
+    with AstroPixBinaryFile(AstroPix4Readout).open(file_path) as input_file:
         print(f'\nStarting playback of binary file {file_path}...')
         print(f'File header: {input_file.header}')
         for i, readout in enumerate(input_file):
@@ -143,7 +143,7 @@ def test_csv_convert():
     with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
         # Horrible trick to get a path to a temp file, rather than an actual file object.
         output_file.close()
-        out = apxdf_to_csv(file_path, AstroPix4Hit, output_file_path=output_file.name)
+        out = apxdf_to_csv(file_path, AstroPix4Readout, output_file_path=output_file.name)
         assert out == output_file.name
         with open(output_file.name) as _out:
             for _ in range(10):

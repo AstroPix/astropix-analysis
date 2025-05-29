@@ -24,7 +24,7 @@ import struct
 import typing
 
 from astropix_analysis import logger
-from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout
+from astropix_analysis.fmt import AstroPix4Hit, AbstractAstroPixReadout
 
 
 class FileHeader:
@@ -116,16 +116,22 @@ class AstroPixBinaryFile:
 
     Arguments
     ---------
-    hit_class : type
-        The class representing the hit type encoded in the file, e.g., ``AstroPix4Hit``.
+    readout_class : type
+        The concrete class representing the readout type encoded in the file,
+        e.g., ``AstroPix4Readout``.
     """
 
     _EXTENSION = '.apx'
 
-    def __init__(self, hit_class: type) -> None:
+    def __init__(self, readout_class: type) -> None:
         """Constructor.
         """
-        self._hit_class = hit_class
+        if not issubclass(readout_class, AbstractAstroPixReadout):
+            raise RuntimeError(f'{readout_class.__name__} is not a subclass of '
+                               'AbstractAstroPixReadout')
+        if readout_class is AbstractAstroPixReadout:
+            raise RuntimeError('AbstractAstroPixReadout is abstract and should not be instantiated')
+        self._readout_class = readout_class
         self.header = None
         self._input_file = None
 
@@ -153,16 +159,16 @@ class AstroPixBinaryFile:
         """
         return self
 
-    def __next__(self) -> AstroPix4Readout:
-        """Read the next packet in the buffer.
+    def __next__(self) -> AbstractAstroPixReadout:
+        """Read the next readout in the file.
         """
-        readout = AstroPix4Readout.from_file(self._input_file)
+        readout = self._readout_class.from_file(self._input_file)
         if readout is None:
             raise StopIteration
         return readout
 
 
-def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
+def _convert_apxdf(file_path: str, readout_class: type, converter: typing.Callable,
                    header: str = None, output_file_path: str = None, open_mode: str = 'w',
                    default_extension: str = None) -> str:
     """Generic conversion factory for AstroPixBinaryFile objects.
@@ -170,7 +176,7 @@ def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
     if output_file_path is None and default_extension is not None:
         output_file_path = file_path.replace('.apx', default_extension)
     logger.info(f'Converting {file_path} file to {output_file_path}...')
-    with AstroPixBinaryFile(hit_class).open(file_path) as input_file, \
+    with AstroPixBinaryFile(readout_class).open(file_path) as input_file, \
          open(output_file_path, open_mode) as output_file:
         if header is not None:
             output_file.write(header)
@@ -183,10 +189,11 @@ def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
     return output_file_path
 
 
-def apxdf_to_csv(file_path: str, hit_class: type = AstroPix4Hit,
+def apxdf_to_csv(file_path: str, readout_class: type = AstroPix4Hit,
                  output_file_path: str = None) -> str:
     """Convert an AstroPix binary file to csv.
     """
-    header = f'# {AstroPix4Hit.text_header()}\n'
-    return _convert_apxdf(file_path, hit_class, hit_class.to_csv, header,
+    hit_class = readout_class._HIT_CLASS
+    header = f'# {hit_class.text_header()}\n'
+    return _convert_apxdf(file_path, readout_class, hit_class.to_csv, header,
                           output_file_path, 'w', '.csv')
