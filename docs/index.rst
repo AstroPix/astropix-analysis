@@ -14,7 +14,7 @@ expect things around here to be stable. You will also notice that the documentat
 is fairly sparse.)
 
 If you are not sure where to go from here, you should probably peek at the
-:ref:`api` page.
+:ref:`api` page or at the :ref:`release`.
 
 
 
@@ -24,3 +24,4 @@ If you are not sure where to go from here, you should probably peek at the
    install
    develop
    api
+   release_notes
