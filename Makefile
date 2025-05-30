@@ -25,7 +25,7 @@ html:
 	cd docs; make html
 
 clean:
-	rm -rf astropix-analysis/__pycache__ tests/__pycache__ .pytest_cache
+	rm -rf astropix_analysis/__pycache__ tests/__pycache__ .pytest_cache
 
 cleandoc:
 	cd docs; make clean
