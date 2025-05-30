@@ -3,7 +3,9 @@
 :mod:`~astropix_analysis.plt_` --- Plotting
 ===========================================
 
-Text goes here.
+.. warning::
+
+   Need to review the module and update the documentation.
 
 
 Module documentation

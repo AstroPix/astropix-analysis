@@ -3,7 +3,9 @@
 :mod:`~astropix_analysis.analysis` --- Analysis tools
 =====================================================
 
-Text goes here.
+.. warning::
+
+   Need to review the module and update the documentation.
 
 
 Module documentation

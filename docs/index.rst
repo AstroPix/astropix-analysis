@@ -13,6 +13,10 @@ decoding, manipulation and analysis of astropix data.
 expect things around here to be stable. You will also notice that the documentation
 is fairly sparse.)
 
+If you are not sure where to go from here, you should probably peek at the
+:ref:`api` page.
+
+
 
 .. toctree::
    :maxdepth: 2
