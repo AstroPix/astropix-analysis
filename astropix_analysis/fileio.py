@@ -38,15 +38,15 @@ class FileHeader:
     The basic contract is that when the ``write()`` method is called we write
     into the output binary file:
 
-    * the header magic word (``%APXDF`` for AstroPix Data Format);
+    * the header magic number;
     * the length of the header content in bytes;
     * the actual header content.
 
     In the opposite direction, when the ``read()`` hook is called, we do:
 
-    * read the first small chunk of the binary file and make sure the magic word is correct;
+    * read the first small chunk of the binary file and make sure the magic number is correct;
     * read the header length;
-    * read and deserialize the header conten, returning a full fledges ``FileHeader`` object.
+    * read and deserialize the header content, returning a full fledges ``FileHeader`` object.
 
     Arguments
     ---------
@@ -87,7 +87,7 @@ class FileHeader:
         """
         magic = input_file.read(len(cls.MAGIC_NUMBER)).decode(cls.ENCODING)
         if magic != cls.MAGIC_NUMBER:
-            raise RuntimeError(f'Invalid magic word ({magic}), expected {cls.MAGIC_NUMBER}')
+            raise RuntimeError(f'Invalid magic number ({magic}), expected {cls.MAGIC_NUMBER}')
         header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
         header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
         content = json.loads(input_file.read(header_length).decode(cls.ENCODING))
