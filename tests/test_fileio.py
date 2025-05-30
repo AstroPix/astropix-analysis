@@ -22,7 +22,7 @@ import tempfile
 
 
 from astropix_analysis import logger
-from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apxdf_to_csv
+from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apx_to_csv
 from astropix_analysis.fmt import AstroPix4Readout
 
 
@@ -143,7 +143,7 @@ def test_csv_convert():
     with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
         # Horrible trick to get a path to a temp file, rather than an actual file object.
         output_file.close()
-        out = apxdf_to_csv(file_path, AstroPix4Readout, output_file_path=output_file.name)
+        out = apx_to_csv(file_path, AstroPix4Readout, output_file_path=output_file.name)
         assert out == output_file.name
         with open(output_file.name, encoding=FileHeader.ENCODING) as _out:
             for _ in range(10):

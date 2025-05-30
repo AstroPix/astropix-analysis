@@ -9,6 +9,9 @@ main classes:
 * :class:`~astropix_analysis.fileio.FileHeader`
 * :class:`~astropix_analysis.fileio.AstroPixBinaryFile`
 
+in addition to the necessary facilities to convert binary files to different
+output formats (e.g., csv).
+
 
 File format
 -----------
@@ -129,9 +132,39 @@ the idiom
    to after we have completely thought through the issue of what we want to include
    in the headers, and how we deal with evolving versions of the underlying objects.
 
+For completeness, the :class:`~astropix_analysis.fileio.AstroPixBinaryFile`
+provides a :meth:`~astropix_analysis.fileio.AstroPixBinaryFile.file_header`
+static method that peeks into the file and return the header without entering
+into the readout part (it goes without saying, in this case the information about
+the readout class is not needed).
+
 
 Format conversion
 -----------------
+
+The module provides the :meth:`~astropix_analysis.fileio._convert_apx` as a function
+factory that helps the creation of concrete conversion functions to transform
+astropix binary files into different formats, more amenable to typical offline
+analysis.
+
+The available converters are:
+
+* :meth:`~astropix_analysis.fileio.apx_to_csv`: convert to comma-separated-values.
+
+
+.. note::
+
+   One important thing to notice is that, while the astropix binary I/O is readout
+   based (i.e., readout objects are written one at a time), the event loop within
+   the conversion function factory is set up so that readout objects are unpacked
+   into hits, and the latter are written to the output file.
+
+.. warning::
+
+   The conversion part is a little bit sketchy, yet, and is essentially limited
+   to converting Astropix4 readout to csv, but the infrastructure is there to
+   make it more general and useful.
+
 
 
 Module documentation
