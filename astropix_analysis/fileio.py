@@ -24,7 +24,7 @@ import struct
 import typing
 
 from astropix_analysis import logger
-from astropix_analysis.fmt import AstroPix4Hit, AbstractAstroPixReadout
+from astropix_analysis.fmt import AbstractAstroPixReadout
 
 
 class FileHeader:
