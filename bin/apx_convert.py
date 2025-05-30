@@ -23,6 +23,14 @@ from astropix_analysis.fmt import AstroPix4Readout
 from astropix_analysis.fileio import apx_to_csv
 
 
+_DESCRIPTION = """Astropix binary data file converter.
+
+Although at this point all this is really doing is converting Astropix4 binary
+data in cvs format, the script will hopefully evolve into something more generally
+useful, supporting multiple versions of the Astropix chip and multiple output
+formats.
+"""
+
 _READOUT_CLASS_NAMES = ('AstroPix4Readout', )
 _DEFAULT_READOUT_CLASS_NAME = 'AstroPix4Readout'
 _READOUT_CLASS_DICT = {
@@ -38,13 +46,13 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Astropix 4 file converter')
+    parser = argparse.ArgumentParser(description=_DESCRIPTION)
     parser.add_argument('infile', type=str,
                         help='path to the input file')
     parser.add_argument('--readout', type=str, choices=_READOUT_CLASS_NAMES,
                         default=_DEFAULT_READOUT_CLASS_NAME,
                         help='the name of the readout class stored in the file')
     parser.add_argument('--outfile', type=str, default=None,
-                        help='path to the output file')
+                        help='path to the output file (optional)')
 
     main(parser.parse_args())
