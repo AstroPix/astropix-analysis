@@ -193,7 +193,7 @@ def apxdf_to_csv(file_path: str, readout_class: type = AstroPix4Hit,
                  output_file_path: str = None) -> str:
     """Convert an AstroPix binary file to csv.
     """
-    hit_class = readout_class._HIT_CLASS
+    hit_class = readout_class.HIT_CLASS
     header = f'# {hit_class.text_header()}\n'
     return _convert_apxdf(file_path, readout_class, hit_class.to_csv, header,
                           output_file_path, '.csv')

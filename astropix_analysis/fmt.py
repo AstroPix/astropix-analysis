@@ -358,7 +358,7 @@ class AbstractAstroPixReadout(ABC):
     """
 
     # The class representing the hit type encoded in the readout, e.g., ``AstroPix4Hit``.
-    _HIT_CLASS = None
+    HIT_CLASS = None
 
     # The padding byte used to pad the readout.
     PADDING_BYTE = bytes.fromhex('ff')
@@ -393,16 +393,16 @@ class AbstractAstroPixReadout(ABC):
         """Overloaded method.
 
         Now, this might be an overkill, but we want to help the user understand
-        that ``_HIT_CLASS`` *must* be redefined to a concrete AbstractAstroPixHit
+        that ``HIT_CLASS`` *must* be redefined to a concrete AbstractAstroPixHit
         subclass.
         """
         super().__init_subclass__()
-        if cls._HIT_CLASS is None:
-            raise TypeError(f'{cls.__name__} must override _HIT_CLASS')
-        if cls._HIT_CLASS is AbstractAstroPixHit:
-            raise TypeError(f'{cls.__name__}._HIT_CLASS is abstract')
-        if not issubclass(cls._HIT_CLASS, AbstractAstroPixHit):
-            raise TypeError(f'{cls.__name__}._HIT_CLASS is not a subclass of AbstractAstroPixHit')
+        if cls.HIT_CLASS is None:
+            raise TypeError(f'{cls.__name__} must override HIT_CLASS')
+        if cls.HIT_CLASS is AbstractAstroPixHit:
+            raise TypeError(f'{cls.__name__}.HIT_CLASS is abstract')
+        if not issubclass(cls.HIT_CLASS, AbstractAstroPixHit):
+            raise TypeError(f'{cls.__name__}.HIT_CLASS is not a subclass of AbstractAstroPixHit')
 
     @staticmethod
     def latch_ns() -> int:
@@ -503,12 +503,12 @@ class AbstractAstroPixReadout(ABC):
             # a proper slice, otherwise we get an int.
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
-            data = self._readout_data[pos:pos + self._HIT_CLASS.SIZE]
+            data = self._readout_data[pos:pos + self.HIT_CLASS.SIZE]
             # If necessary, reverse the bit order in the hit data.
             if reverse:
                 data = reverse_bit_order(data)
-            hits.append(self._HIT_CLASS(data, self.readout_id, self.timestamp))
-            pos += self._HIT_CLASS.SIZE
+            hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+            pos += self.HIT_CLASS.SIZE
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
         return hits
@@ -525,4 +525,4 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     """Class describing an AstroPix 4 readout.
     """
 
-    _HIT_CLASS = AstroPix4Hit
+    HIT_CLASS = AstroPix4Hit

@@ -97,11 +97,11 @@ class :class:`~astropix_analysis.fmt.AstroPix4Readout`
    :pyobject: AstroPix4Readout
 
 shows in fact that the only thing you really need to do is to redefine the
-``_HIT_CLASS`` class variable, setting it to the proper type describing the hit
-objects that the readout include. Note that ``_HIT_CLASS`` should be a concrete
+``HIT_CLASS`` class variable, setting it to the proper type describing the hit
+objects that the readout include. Note that ``HIT_CLASS`` should be a concrete
 subclass of :class:`~astropix_analysis.fmt.AbstractAstroPixHit`; this ensures that
 any class instance is able to decode itself. (The abstract base class has
-``_HIT_CLASS = None`` and therefore should not be instantiated.)
+``HIT_CLASS = None`` and therefore should not be instantiated.)
 
 The class constructor
 

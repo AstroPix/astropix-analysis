@@ -91,20 +91,20 @@ def test_abc():
     """
     # pylint: disable=unused-variable, missing-class-docstring
 
-    # Make sure classes derived from AbstractAstroPixReadout override _HIT_CLASS
+    # Make sure classes derived from AbstractAstroPixReadout override HIT_CLASS
     with pytest.raises(TypeError) as info:
         class Readout1(AbstractAstroPixReadout):
             pass
     print(info.value)
 
-    # Make sure _HIT_CLASS is not abstract.
+    # Make sure HIT_CLASS is not abstract.
     with pytest.raises(TypeError) as info:
         class Readout2(AbstractAstroPixReadout):
-            _HIT_CLASS = AbstractAstroPixHit
+            HIT_CLASS = AbstractAstroPixHit
     print(info.value)
 
-    # Make sure _HIT_CLASS is of the proper type.
+    # Make sure HIT_CLASS is of the proper type.
     with pytest.raises(TypeError) as info:
         class Readout3(AbstractAstroPixReadout):
-            _HIT_CLASS = float
+            HIT_CLASS = float
     print(info.value)
