@@ -125,10 +125,9 @@ the idiom
    You will notice that you have to provide the class of the readout structures
    that the binary file contains when you open it. While in principle we could
    put this information in the file header at write time and figure out everything
-   automagically at read time, I thought we would defer this level of cleverness
+   auto-magically at read time, I thought we would defer this level of cleverness
    to after we have completely thought through the issue of what we want to include
-   in the headers, and how we deal with eveloving versions of the underlying
-   objects.
+   in the headers, and how we deal with evolving versions of the underlying objects.
 
 
 Format conversion
