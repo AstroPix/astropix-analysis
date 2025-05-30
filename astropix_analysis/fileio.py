@@ -256,8 +256,7 @@ def _convert_apx(input_file_path: str, readout_class: type, converter: typing.Ca
     return output_file_path
 
 
-def apx_to_csv(input_file_path: str, readout_class: type = AstroPix4Hit,
-               output_file_path: str = None) -> str:
+def apx_to_csv(input_file_path: str, readout_class: type, output_file_path: str = None) -> str:
     """Convert an AstroPix binary file to csv.
     """
     hit_class = readout_class.HIT_CLASS
