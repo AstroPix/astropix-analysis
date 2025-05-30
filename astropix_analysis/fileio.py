@@ -169,15 +169,15 @@ class AstroPixBinaryFile:
 
 
 def _convert_apxdf(file_path: str, readout_class: type, converter: typing.Callable,
-                   header: str = None, output_file_path: str = None, open_mode: str = 'w',
-                   default_extension: str = None) -> str:
+                   header: str = None, output_file_path: str = None, default_extension: str = None,
+                   open_mode: str = 'w', encoding: str = FileHeader.ENCODING) -> str:
     """Generic conversion factory for AstroPixBinaryFile objects.
     """
     if output_file_path is None and default_extension is not None:
         output_file_path = file_path.replace('.apx', default_extension)
     logger.info(f'Converting {file_path} file to {output_file_path}...')
     with AstroPixBinaryFile(readout_class).open(file_path) as input_file, \
-         open(output_file_path, open_mode) as output_file:
+         open(output_file_path, open_mode, encoding=encoding) as output_file:
         if header is not None:
             output_file.write(header)
         num_hits = 0
@@ -196,4 +196,4 @@ def apxdf_to_csv(file_path: str, readout_class: type = AstroPix4Hit,
     hit_class = readout_class._HIT_CLASS
     header = f'# {hit_class.text_header()}\n'
     return _convert_apxdf(file_path, readout_class, hit_class.to_csv, header,
-                          output_file_path, 'w', '.csv')
+                          output_file_path, '.csv')

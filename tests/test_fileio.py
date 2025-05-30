@@ -145,7 +145,7 @@ def test_csv_convert():
         output_file.close()
         out = apxdf_to_csv(file_path, AstroPix4Readout, output_file_path=output_file.name)
         assert out == output_file.name
-        with open(output_file.name) as _out:
+        with open(output_file.name, encoding=FileHeader.ENCODING) as _out:
             for _ in range(10):
                 print(_out.readline())
     # Remove the temporary file.
