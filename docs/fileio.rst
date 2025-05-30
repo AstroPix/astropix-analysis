@@ -9,8 +9,27 @@ main classes:
 * :class:`~astropix_analysis.fileio.FileHeader`
 * :class:`~astropix_analysis.fileio.AstroPixBinaryFile`
 
-As usual, for those who are in a rush, the basic write machinery is implemented
-so that it can be put to use in the following fashion
+
+File format
+-----------
+
+The basic astropix file format is defined as a binary stream, where a
+`magic number <https://en.wikipedia.org/wiki/File_format#Magic_number>`_
+is followed by a text header (both encoded in UTF-8) and then by the bulk of
+binary data. More specifically we have
+
+* a magic number, provisionally set to ``%APXDF`` (the pdf format, e.g., uses ``%PDF``),
+  which can be used to determine whether a given file is an astropix binary file
+  by just peeking at it;
+* a single integer representing the length of the following (variable-size) part
+  of the header, which is necessary to be able to parse the header and place the
+  pointer to the current position within the file to the right place to start
+  iterating over the readout objects;
+* the actual header, in the form of an arbitrary set of information, json encoded;
+* a sequence of readout objects, written as binary data.
+
+For those who are in a rush, the basic write machinery is implemented so that it
+can be put to use in the following fashion:
 
 .. code-block:: python
 
@@ -20,8 +39,10 @@ so that it can be put to use in the following fashion
    output_file = open('path/to/my/file.apx', 'wb')
 
    # Write the header, which can contain pretty much arbitrary information,
-   # as long as the latter can be json-encoded.
-   header = FileHeader(dict(version=1, content='hits'))
+   # as long as the latter can be json-encoded. A python dictionary, be it nested
+   # to an arbitrary level, will do as long as it does not contain too exotic structures.
+   header_content = dict(version=1, stuff='hits')
+   header = FileHeader(header_content)
 
    # ... event loop.
    readout_id = 0
@@ -51,26 +72,6 @@ can be read back in the succinct form
            print(readout)
            for hit in readout.decode():
                print(hit)
-
-
-File format
------------
-
-The basic astropix file format is defined as a binary stream, where a
-`magic number <https://en.wikipedia.org/wiki/File_format#Magic_number>`_
-is followed by a text header (both encoded in UTF-8) and then by the bulk of
-binary data. More specifically we have
-
-* a magic number, provisionally set to ``%APXDF`` (the pdf format, e.g., uses ``%PDF``),
-  which can be used to determine whether a given file is an astropix binary file
-  by just peeking at it;
-* a single integer representing the length of the following (variable-size) part
-  of the header, which is necessary to be able to parse the header and place the
-  pointer to the current position within the file to the right place to start
-  iterating over the readout objects;
-* the actual header, in the form of an arbitrary set of information, json encoded;
-* a sequence of readout objects, written as binary data.
-
 
 File header
 -----------
