@@ -2,13 +2,13 @@ all: ruff flake lint
 
 flake:
 	flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-	flake8 astropix_analysis tests --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+	flake8 astropix_analysis bin tests --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
 
 ruff:
-	ruff check astropix_analysis tests
+	ruff check astropix_analysis bin tests
 
 lint:
-	pylint astropix_analysis tests \
+	pylint astropix_analysis bin tests \
 		--disable too-many-ancestors \
 		--disable too-many-arguments \
 		--disable too-many-function-args \
