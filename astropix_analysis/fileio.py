@@ -136,7 +136,7 @@ class AstroPixBinaryFile:
         self._input_file = None
 
     @staticmethod
-    def file_header(file_path: str):
+    def read_file_header(file_path: str):
         """Convenience function to retrieve the header of a given astropix binary file.
 
         Note this is opening and (immediately) closing the file, and can be used
@@ -148,8 +148,7 @@ class AstroPixBinaryFile:
             Path to the input astropix binary file.
         """
         with open(file_path, 'rb') as input_file:
-            header = FileHeader.read(input_file)
-        return header
+            return FileHeader.read(input_file)
 
     @contextmanager
     def open(self, file_path: str):
@@ -264,7 +263,7 @@ def apx_to_csv(input_file_path: str, readout_class: type, output_file_path: str 
     extension = '.csv'
     # We need to decide whether we want to include some representation of the
     # header of the input file in the output cvs file?
-    apx_header = AstroPixBinaryFile.file_header(input_file_path)
+    apx_header = AstroPixBinaryFile.read_file_header(input_file_path)
     header = f'# {apx_header}\n# {hit_class.text_header()}\n'
     return _convert_apx(input_file_path, readout_class, converter, extension,
                         output_file_path, header)

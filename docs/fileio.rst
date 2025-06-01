@@ -102,7 +102,7 @@ be included, but in general you would have to provide a custom serialized.
 
    Keep in mind it is the file header that is responsible for writing the magic
    number to the output file, so if you do want a properly formatted astropix
-   file you will need a header object---be it populated or not. 
+   file you will need a header object---be it populated or not.
 
 
 File objects
@@ -140,7 +140,7 @@ the idiom
    in the headers, and how we deal with evolving versions of the underlying objects.
 
 For completeness, the :class:`~astropix_analysis.fileio.AstroPixBinaryFile`
-provides a :meth:`~astropix_analysis.fileio.AstroPixBinaryFile.file_header`
+provides a :meth:`~astropix_analysis.fileio.AstroPixBinaryFile.read_file_header`
 static method that peeks into the file and return the header without entering
 into the readout part (it goes without saying, in this case the information about
 the readout class is not needed).
