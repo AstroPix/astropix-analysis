@@ -46,6 +46,7 @@ can be put to use in the following fashion:
    # to an arbitrary level, will do as long as it does not contain too exotic structures.
    header_content = dict(version=1, stuff='hits')
    header = FileHeader(header_content)
+   header.write(output_file)
 
    # ... event loop.
    readout_id = 0
@@ -95,7 +96,13 @@ we assume it can be json-encoded. The typical use case would be for the content
 to be an arbitrary, possibly nested, Python dictionary, and as long as you only
 include native Python types in it (e.g., strings, integers, floats or contained
 with simple types in them) you should be ok. More complex data types can in principle
-be included, but in general you would have to provide a custom serializer.
+be included, but in general you would have to provide a custom serialized.
+
+.. warning::
+
+   Keep in mind it is the file header that is responsible for writing the magic
+   number to the output file, so if you do want a properly formatted astropix
+   file you will need a header object---be it populated or not. 
 
 
 File objects
