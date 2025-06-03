@@ -65,57 +65,33 @@ class BitPattern(str):
         return int(super().__getitem__(index), 2)
 
 
-class AbstractAstroPixHit(ABC):
+class AstroPixHitMeta(type):
 
-    """Abstract base class for a generic AstroPix hit.
+    """Metaclass for the AbstractAstroPixHit abstract base class.
 
-    While the original decode routine was working in terms of the various bytes
-    in the binary representation of the hit, since there seem to be no meaning
-    altogether in the byte boundaries (at least for AstroPix 4), and the various
-    fields are arbitrary subsets of a multi-byte word, it seemed more natural to
-    describe the hit as a sequence of fields, each one with its own length in bits.
-
-    Note this is an abstract class that cannot be instantiated. Concrete subclasses
-    must by contract:
-
-    * define the _LAYOUT class member, a dictionary mapping the names of the
-      fields in the underlying binary data structure to the corresponding width
-      in bits;
-    * define the _ATTRIBUTES class member, which typically contains all the keys
-      in the _LAYOUT dictionary, and, possibly, additional strings for class member
-      defined in the constructor---this is used to control the string formatting
-      and the file I/O;
-    * explicitly calculate the size (in bytes) of the hit structure. This can
-      be done by summing up the widths of the fields in _LAYOUT, and the staticmethod
-      ``_calculate_size()`` does just that. (Note this could be automatically done
-      at runtime, but since for simple, fixed-width hit structures this is the same
-      for all the instances, it seemed more natural to accept the nuisance of doing
-      that in the class definition, avoiding the overhead that would be implied by
-      doing that over and over again for each object.)
-
-    Arguments
-    ---------
-    data : bytearray
-        The portion of a full AstroPix readout representing a single hit.
+    This is basically calculating the overall size (in bytes) of the underlying
+    binary payload, given the ``_LAYOUT`` class variable, and setting an additional
+    ``_SIZE`` class variable in all concrete subclasses of AbstractAstroPixHit,
+    that can be used at runtime when decoding a readout. (Note we cannot set
+    ``_SIZE`` directly in the AbstractAstroPixHit class definition because at that
+    point ``_LAYOUT`` is still ``None``.)
     """
 
-    _LAYOUT = None
-    _ATTRIBUTES = None
-    SIZE = None
-
-    def __init__(self, data: bytearray) -> None:
-        """Constructor.
+    def __new__(mcs, name, bases, namespace):
+        """Overloaded method.
         """
-        # Since we don't need the underlying bit pattern to be mutable, turn the
-        # bytearray object into a bytes object.
-        self._data = bytes(data)
-        # Build a bit pattern to extract the fields and loop over the hit fields
-        # to set all the class members.
-        bit_pattern = BitPattern(self._data)
-        pos = 0
-        for name, width in self._LAYOUT.items():
-            self.__setattr__(name, bit_pattern[pos:pos + width])
-            pos += width
+        # Retrieve the _LAYOUT class variable for the class at hand (not this
+        # will be None for the abstract base class AbstractAstroPixHit).
+        layout = namespace['_LAYOUT']
+        # For the abstract base class, set the size to zero.
+        if layout is None:
+            size = 0
+        # For all concrete subclasses, properly calculate the size.
+        else:
+            size = AstroPixHitMeta._calculate_size(layout)
+        # In any case, we set the _SIZE class variable.
+        namespace['_SIZE'] = size
+        return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
     def _calculate_size(layout: dict[str, int]) -> int:
@@ -137,6 +113,51 @@ class AbstractAstroPixHit(ABC):
             raise RuntimeError(f'Invalid layout {layout}: size in bit ({num_bits}) '
                                'is not a multiple of 8')
         return size
+
+
+class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
+
+    """Abstract base class for a generic AstroPix hit.
+
+    While the original decode routine was working in terms of the various bytes
+    in the binary representation of the hit, since there seem to be no meaning
+    altogether in the byte boundaries (at least for AstroPix 4), and the various
+    fields are arbitrary subsets of a multi-byte word, it seemed more natural to
+    describe the hit as a sequence of fields, each one with its own length in bits.
+
+    Note this is an abstract class that cannot be instantiated. Concrete subclasses
+    must by contract:
+
+    * define the _LAYOUT class member, a dictionary mapping the names of the
+      fields in the underlying binary data structure to the corresponding width
+      in bits;
+    * define the _ATTRIBUTES class member, which typically contains all the keys
+      in the _LAYOUT dictionary, and, possibly, additional strings for class member
+      defined in the constructor---this is used to control the string formatting
+      and the file I/O;
+
+    Arguments
+    ---------
+    data : bytearray
+        The portion of a full AstroPix readout representing a single hit.
+    """
+
+    _LAYOUT = None
+    _ATTRIBUTES = None
+
+    def __init__(self, data: bytearray) -> None:
+        """Constructor.
+        """
+        # Since we don't need the underlying bit pattern to be mutable, turn the
+        # bytearray object into a bytes object.
+        self._data = bytes(data)
+        # Build a bit pattern to extract the fields and loop over the hit fields
+        # to set all the class members.
+        bit_pattern = BitPattern(self._data)
+        pos = 0
+        for name, width in self._LAYOUT.items():
+            self.__setattr__(name, bit_pattern[pos:pos + width])
+            pos += width
 
     @staticmethod
     def gray_to_decimal(gray: int) -> int:
@@ -256,7 +277,6 @@ class AstroPix3Hit(AbstractAstroPixHit):
         'tot_lsb': 8
     }
     _ATTRIBUTES = tuple(_LAYOUT.keys()) + ('tot', 'tot_us')
-    SIZE = AbstractAstroPixHit._calculate_size(_LAYOUT)
     CLOCK_CYCLES_PER_US = 200.
 
     def __init__(self, data: bytearray) -> None:
@@ -290,7 +310,6 @@ class AstroPix4Hit(AbstractAstroPixHit):
     }
     _ATTRIBUTES = tuple(_LAYOUT.keys()) + \
         ('ts_dec1', 'ts_dec2', 'tot_us', 'readout_id', 'timestamp')
-    SIZE = AbstractAstroPixHit._calculate_size(_LAYOUT)
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
@@ -503,12 +522,12 @@ class AbstractAstroPixReadout(ABC):
             # a proper slice, otherwise we get an int.
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
-            data = self._readout_data[pos:pos + self.HIT_CLASS.SIZE]
+            data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
             # If necessary, reverse the bit order in the hit data.
             if reverse:
                 data = reverse_bit_order(data)
             hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
-            pos += self.HIT_CLASS.SIZE
+            pos += self.HIT_CLASS._SIZE
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
         return hits

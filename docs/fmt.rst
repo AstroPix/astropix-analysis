@@ -147,23 +147,6 @@ At the very minimum you have to:
 * override the ``_ATTRIBUTES`` class variable, which generally includes all the
   fields defined in the ``_LAYOUT``, plus any additional quantity that is
   calculated from the aforementioned fields when the class is instantiated;
-* override the ``SIZE`` class variable with the overall size of the overall hit
-  frame in bytes.
-
-.. note::
-
-   The ``SIZE`` class variable can be in principle calculated from the ``_LAYOUT``
-   by just summing up all the field widths, and in fact the
-   :meth:`~astropix_analysis.fmt.AbstractAstroPixHit._calculate_size()` static
-   method does just that, but we need the cope with the nuisance of having to type
-   the boilerplate line
-
-   .. code-block:: python
-
-      SIZE = AbstractAstroPixHit._calculate_size(_LAYOUT)
-
-   each time in the class definition in order to not recalculate the same thing
-   at runtime over and over again for each class instance.
 
 The layout machinery is designed to avoid addressing the underlying binary data
 with hard-coded indices and make it easier to reason about the hist structure.
