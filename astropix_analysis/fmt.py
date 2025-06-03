@@ -514,7 +514,7 @@ class AbstractAstroPixReadout(ABC):
         reverse : bool (default True)
             If True, the bit order within each byte is reversed.
         """
-        # pylint: disable=not-callable
+        # pylint: disable=not-callable, protected-access
         hits = []
         pos = 0
         while pos < len(self._readout_data):
