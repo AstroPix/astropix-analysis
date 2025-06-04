@@ -129,6 +129,18 @@ def test_playback_data(num_hits: int = 10):
         print(f'{i + 1} hits found')
 
 
+def test_table():
+    """
+    """
+    run_id = '20250507_085829'
+    file_name = f'{run_id}_data.apx'
+    file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
+    col_names = ('chip_id', 'row', 'column', 'tot_us', 'readout_id', 'timestamp')
+    with AstroPixBinaryFile(AstroPix4Readout).open(file_path) as input_file:
+        table = input_file.to_table(col_names)
+    print(table)
+
+
 def test_csv_convert():
     """Read a sample real .apx file and convert it to csv.
 

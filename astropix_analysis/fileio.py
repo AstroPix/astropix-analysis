@@ -23,6 +23,8 @@ import json
 import struct
 import typing
 
+import astropy.table
+
 from astropix_analysis import logger
 from astropix_analysis.fmt import AbstractAstroPixReadout
 
@@ -181,6 +183,19 @@ class AstroPixBinaryFile:
         if readout is None:
             raise StopIteration
         return readout
+
+    def to_table(self, col_names: List[str]) -> astropy.table.Table:
+        """Convert the file to a astropy table.
+        """
+        logger.info(f'Converting {self._input_file.name} to an astropy table...')
+        table = astropy.table.Table(names=col_names)
+        for readout in self:
+            hits = readout.decode()
+            for hit in hits:
+                values = (hit.chip_id, hit.row, hit.column, hit.tot_us, hit.readout_id, hit.timestamp)
+                table.add_row(values)
+        logger.info(f'Done, {len(table)} row(s) populated.')
+        return table
 
 
 def _convert_apx(input_file_path: str, readout_class: type, converter: typing.Callable,
