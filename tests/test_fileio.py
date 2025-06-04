@@ -20,6 +20,7 @@
 import os
 import tempfile
 
+import numpy as np
 
 from astropix_analysis import logger
 from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apx_to_csv
@@ -136,8 +137,9 @@ def test_table():
     file_name = f'{run_id}_data.apx'
     file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
     col_names = ('chip_id', 'row', 'column', 'tot_us', 'readout_id', 'timestamp')
+    data_types = (np.uint16, np.uint8, np.uint8, np.float32, np.uint64, np.uint64)
     with AstroPixBinaryFile(AstroPix4Readout).open(file_path) as input_file:
-        table = input_file.to_table(col_names)
+        table = input_file.to_table(col_names, data_types)
     print(table)
 
 
