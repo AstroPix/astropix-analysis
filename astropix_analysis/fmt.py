@@ -22,6 +22,7 @@ import struct
 import time
 import typing
 
+import astropy.table
 import numpy as np
 
 
@@ -76,7 +77,7 @@ def hitclass(cls: type) -> type:
     type is created, as opposed to do it over and over again each time an instance
     of the class is created. More specifically:
 
-    * ``_ATTR_NAMES`` is a tuple containing all the hit field names that can be
+    * ``ATTRIBUTE_NAMES`` is a tuple containing all the hit field names that can be
       used, e.g., for printing out the hit itself;
     * ``_ATTR_IDX_DICT`` is a dictionary mapping the name of each attribute to
       the corresponding slice of the input binary buffer---note it does not include
@@ -87,7 +88,7 @@ def hitclass(cls: type) -> type:
       (e.g., in HDF5 or FITS format).
     """
     # pylint: disable=protected-access
-    cls._ATTR_NAMES = tuple(cls._LAYOUT.keys())
+    cls.ATTRIBUTE_NAMES = tuple(cls._LAYOUT.keys())
     cls._ATTR_IDX_DICT = {name: idx for name, (idx, _) in cls._LAYOUT.items() if idx is not None}
     cls._ATTR_TYPE_DICT = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
     return cls
@@ -103,12 +104,15 @@ class AbstractAstroPixHit(ABC):
     fields are arbitrary subsets of a multi-byte word, it seemed more natural to
     describe the hit as a sequence of fields, each one with its own length in bits.
 
-    Note this is an abstract class that cannot be instantiated. Concrete subclasses
-    must by contract:
+    Note this is an abstract class that cannot be instantiated. (Note the ``__init__()``
+    special method is abstract and needs to be overloaded, based on the assumption
+    that for concrete classes we always want to calculate derived quantities based
+    on the row ones parsed from the input binary buffer.)
+    Concrete subclasses must by contract:
 
-    * overload the ``_SIZE`` class with the length of underlying binary packet in bytes;
-    * overload the ``_LAYOUT`` class member, defining the various fields in the
-      hit structure.
+    * overload the ``_SIZE``;
+    * overload the ``_LAYOUT``;
+    * be decorated with the ``@hitclass`` decorator.
 
     Arguments
     ---------
@@ -116,8 +120,15 @@ class AbstractAstroPixHit(ABC):
         The portion of a full AstroPix readout representing a single hit.
     """
 
-    _SIZE = None
-    _LAYOUT = None
+    # These first two class variables must be overriden by concrete subclasses...
+    _SIZE = 0
+    _LAYOUT = {}
+    # ... while these get populated automatically once the subclass is decorated
+    # with @hitclass (and still we initialize them here to None to make the linters
+    # happy.)
+    ATTRIBUTE_NAMES = ()
+    _ATTR_IDX_DICT = {}
+    _ATTR_TYPE_DICT = {}
 
     @abstractmethod
     def __init__(self, data: bytearray) -> None:
@@ -149,26 +160,54 @@ class AbstractAstroPixHit(ABC):
             decimal ^= mask  # XOR each shifted bit
         return decimal
 
+    @classmethod
+    def _numpy_types(cls, *attribute_names: str) -> list[type]:
+        """Return a list of the proper numpy types for a given set of attribute
+        names of a given hit type.
+
+        This is used, e.g., for creating an empty astropy table to save a list
+        of hits to persistent storage.
+
+        Arguments
+        ---------
+        attribute_names : str
+            The name of the hit attributes.
+        """
+        return [cls._ATTR_TYPE_DICT[name] for name in attribute_names]
+
+    @classmethod
+    def empty_table(cls, *attribute_names: str) -> astropy.table.Table:
+        """Return an astropy empty table with the proper column types for the
+        concrete hit type.
+
+        Arguments
+        ---------
+        attribute_names : str
+            The name of the hit attributes.
+        """
+        types = cls._numpy_types(*attribute_names)
+        return astropy.table.Table(names=attribute_names, dtype=types)
+
+    def attribute_values(self, *attribute_names: str) -> list:
+        """Return the value of the hit attributes for a given set of attribute names.
+
+        Arguments
+        ---------
+        attribute_names : str
+            The name of the hit attributes.
+        """
+        return [getattr(self, name) for name in attribute_names]
+
     def __eq__(self, other: 'AbstractAstroPixHit') -> bool:
         """Comparison operator---this is handy in the unit tests.
         """
         return self._data == other._data
 
-    @classmethod
-    def text_header(cls, attrs=None, separator: str = ',') -> str:
-        """Return a proper header for a text file representing a list of hits.
-        """
-        return ''
-
-    def to_csv(self, attrs=None) -> str:
-        """Return the hit representation in csv format.
-        """
-        return ''
-
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__} {self.__dict__}'
+        return f'{self.__class__.__name__}'\
+               f'({', '.join(f'{key} = {value}' for key, value in self.__dict__.items())})'
 
 
 @hitclass
