@@ -22,6 +22,8 @@ import struct
 import time
 import typing
 
+import numpy as np
+
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
 # forever to speedup the computation at runtime and avoid doing the same
@@ -65,57 +67,28 @@ class BitPattern(str):
         return int(super().__getitem__(index), 2)
 
 
-class AstroPixHitMeta(type):
+def hitclass(cls: type) -> type:
+    """Small decorator to support automatic generation of hit classes.
 
-    """Metaclass for the AbstractAstroPixHit abstract base class.
+    Here we simply calculate some useful class variables that are needed to
+    unpack the binary data and/or write the hit to different data formats. Having
+    a decorator allows to do the operation once and for all at the time the
+    type is created, as opposed to do it over and over again each time an instance
+    of the class is created. More specifically:
 
-    This is basically calculating the overall size (in bytes) of the underlying
-    binary payload, given the ``_LAYOUT`` class variable, and setting an additional
-    ``_SIZE`` class variable in all concrete subclasses of AbstractAstroPixHit,
-    that can be used at runtime when decoding a readout. (Note we cannot set
-    ``_SIZE`` directly in the AbstractAstroPixHit class definition because at that
-    point ``_LAYOUT`` is still ``None``.)
+    * ``_ATTRIBUTES`` is a tuple containing all the hit field names that can be
+      used, e.g., for printing out the hit itself;
+    * ``_ATTR_TYPES`` is a dictionary mapping the name of each class attribute to
+      the corresponding data type for the purpose of writing it to a binary file
+      (e.g., in HDF5 or FITS format).
     """
-
-    def __new__(mcs, name, bases, namespace):
-        """Overloaded method.
-        """
-        # Retrieve the _LAYOUT class variable for the class at hand (not this
-        # will be None for the abstract base class AbstractAstroPixHit).
-        layout = namespace['_LAYOUT']
-        # For the abstract base class, set the size to zero.
-        if layout is None:
-            size = 0
-        # For all concrete subclasses, properly calculate the size.
-        else:
-            size = AstroPixHitMeta._calculate_size(layout)
-        # In any case, we set the _SIZE class variable.
-        namespace['_SIZE'] = size
-        return super().__new__(mcs, name, bases, namespace)
-
-    @staticmethod
-    def _calculate_size(layout: dict[str, int]) -> int:
-        """Calculate the size of a concrete hit data structure in bytes.
-
-        This is achieved by summing up all the values in the _LAYOUT dictionary,
-        and does not include the size of the hit header and trailer within the
-        readout.
-
-        Arguments
-        ---------
-        layout : dict
-            The layout of the hit, as a dictionary of field names and their
-            respective widths in bits.
-        """
-        num_bits = sum(layout.values())
-        size, reminder = divmod(num_bits, 8)
-        if reminder != 0:
-            raise RuntimeError(f'Invalid layout {layout}: size in bit ({num_bits}) '
-                               'is not a multiple of 8')
-        return size
+    # pylint: disable=protected-access
+    cls._ATTRIBUTES = tuple(cls._LAYOUT.keys())
+    cls._ATTR_TYPES = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
+    return cls
 
 
-class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
+class AbstractAstroPixHit(ABC):
 
     """Abstract base class for a generic AstroPix hit.
 
@@ -128,13 +101,9 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
     Note this is an abstract class that cannot be instantiated. Concrete subclasses
     must by contract:
 
-    * define the _LAYOUT class member, a dictionary mapping the names of the
-      fields in the underlying binary data structure to the corresponding width
-      in bits;
-    * define the _ATTRIBUTES class member, which typically contains all the keys
-      in the _LAYOUT dictionary, and, possibly, additional strings for class member
-      defined in the constructor---this is used to control the string formatting
-      and the file I/O;
+    * overload the ``_SIZE`` class with the length of underlying binary packet in bytes;
+    * overload the ``_LAYOUT`` class member, defining the various fields in the
+      hit structure.
 
     Arguments
     ---------
@@ -142,8 +111,8 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
         The portion of a full AstroPix readout representing a single hit.
     """
 
+    _SIZE = None
     _LAYOUT = None
-    _ATTRIBUTES = None
 
     def __init__(self, data: bytearray) -> None:
         """Constructor.
@@ -154,10 +123,9 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
         # Build a bit pattern to extract the fields and loop over the hit fields
         # to set all the class members.
         bit_pattern = BitPattern(self._data)
-        pos = 0
-        for name, width in self._LAYOUT.items():
-            self.__setattr__(name, bit_pattern[pos:pos + width])
-            pos += width
+        for name, (idx, _) in self._LAYOUT.items():
+            if idx is not None:
+                setattr(self, name, bit_pattern[idx])
 
     @staticmethod
     def gray_to_decimal(gray: int) -> int:
@@ -256,6 +224,7 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
         return self._repr(self._ATTRIBUTES)
 
 
+@hitclass
 class AstroPix3Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix3 hit.
@@ -265,18 +234,19 @@ class AstroPix3Hit(AbstractAstroPixHit):
         This is copied from decode.py and totally untested.
     """
 
+    _SIZE = 5
     _LAYOUT = {
-        'chip_id': 5,
-        'payload': 3,
-        'column': 1,
-        'reserved1': 1,
-        'location': 6,
-        'timestamp': 8,
-        'reserved2': 4,
-        'tot_msb': 4,
-        'tot_lsb': 8
+        'chip_id': (slice(0, 5), np.uint8),
+        'payload': (slice(5, 8), np.uint8),
+        'column': (8, np.bool),
+        'location': (slice(10, 16), np.uint8),
+        'timestamp': (slice(16, 24), np.uint8),
+        'tot_msb': (slice(28, 32), np.uint8),
+        'tot_lsb': (slice(32, 40), np.uint8),
+        'tot_dec': (None, np.uint16),
+        'tot_us': (None, np.float32)
     }
-    _ATTRIBUTES = tuple(_LAYOUT.keys()) + ('tot', 'tot_us')
+
     CLOCK_CYCLES_PER_US = 200.
 
     def __init__(self, data: bytearray) -> None:
@@ -285,31 +255,37 @@ class AstroPix3Hit(AbstractAstroPixHit):
         # pylint: disable=no-member
         super().__init__(data)
         # Calculate the TOT in physical units.
-        self.tot = (self.tot_msb << 8) + self.tot_lsb
-        self.tot_us = self.tot / self.CLOCK_CYCLES_PER_US
+        self.tot_dec = (self.tot_msb << 8) + self.tot_lsb
+        self.tot_us = self.tot_dec / self.CLOCK_CYCLES_PER_US
 
 
+@hitclass
 class AstroPix4Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix4 hit.
     """
 
+    _SIZE = 8
     _LAYOUT = {
-        'chip_id': 5,
-        'payload': 3,
-        'row': 5,
-        'column': 5,
-        'ts_neg1': 1,
-        'ts_coarse1': 14,
-        'ts_fine1': 3,
-        'ts_tdc1': 5,
-        'ts_neg2': 1,
-        'ts_coarse2': 14,
-        'ts_fine2': 3,
-        'ts_tdc2': 5
+        'chip_id': (slice(0, 5), np.uint8),
+        'payload': (slice(5, 8), np.uint8),
+        'row': (slice(8, 13), np.uint8),
+        'column': (slice(13, 18), np.uint8),
+        'ts_neg1': (18, np.bool),
+        'ts_coarse1': (slice(19, 33), np.uint16),
+        'ts_fine1': (slice(33, 36), np.uint8),
+        'ts_tdc1': (slice(36, 41), np.uint8),
+        'ts_neg2': (41, np.bool),
+        'ts_coarse2': (slice(42, 56), np.uint16),
+        'ts_fine2': (slice(56, 59), np.uint8),
+        'ts_tdc2': (slice(59, 64), np.uint8),
+        'ts_dec1': (None, np.uint32),
+        'ts_dec2': (None, np.uint32),
+        'tot_us': (None, np.float32),
+        'readout_id': (None, np.uint32),
+        'timestamp': (None, np.uint64)
     }
-    _ATTRIBUTES = tuple(_LAYOUT.keys()) + \
-        ('ts_dec1', 'ts_dec2', 'tot_us', 'readout_id', 'timestamp')
+
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 

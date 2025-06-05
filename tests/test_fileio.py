@@ -131,7 +131,7 @@ def test_playback_data(num_hits: int = 10):
 
 
 def test_table():
-    """
+    """Test the table conversion.
     """
     run_id = '20250507_085829'
     file_name = f'{run_id}_data.apx'

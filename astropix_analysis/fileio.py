@@ -184,7 +184,7 @@ class AstroPixBinaryFile:
             raise StopIteration
         return readout
 
-    def to_table(self, col_names: List[str], data_types) -> astropy.table.Table:
+    def to_table(self, col_names: list[str], data_types) -> astropy.table.Table:
         """Convert the file to a astropy table.
         """
         logger.info(f'Converting {self._input_file.name} to an astropy table...')
@@ -192,7 +192,8 @@ class AstroPixBinaryFile:
         for readout in self:
             hits = readout.decode()
             for hit in hits:
-                values = (hit.chip_id, hit.row, hit.column, hit.tot_us, hit.readout_id, hit.timestamp)
+                values = (hit.chip_id, hit.row, hit.column, hit.tot_us,
+                          hit.readout_id, hit.timestamp)
                 table.add_row(values)
         logger.info(f'Done, {len(table)} row(s) populated.')
         return table
