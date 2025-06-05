@@ -17,7 +17,7 @@
 """
 
 from __future__ import annotations
-from abc import ABC
+from abc import ABC, abstractmethod
 import struct
 import time
 import typing
@@ -68,7 +68,7 @@ class BitPattern(str):
 
 
 def hitclass(cls: type) -> type:
-    """Small decorator to support automatic generation of hit classes.
+    """Small decorator to support automatic generation of concrete hit classes.
 
     Here we simply calculate some useful class variables that are needed to
     unpack the binary data and/or write the hit to different data formats. Having
@@ -76,15 +76,20 @@ def hitclass(cls: type) -> type:
     type is created, as opposed to do it over and over again each time an instance
     of the class is created. More specifically:
 
-    * ``_ATTRIBUTES`` is a tuple containing all the hit field names that can be
+    * ``_ATTR_NAMES`` is a tuple containing all the hit field names that can be
       used, e.g., for printing out the hit itself;
-    * ``_ATTR_TYPES`` is a dictionary mapping the name of each class attribute to
+    * ``_ATTR_IDX_DICT`` is a dictionary mapping the name of each attribute to
+      the corresponding slice of the input binary buffer---note it does not include
+      the attributes that are not encoded in the input buffer, but are calculated
+      at construction time; this facilitates unpacking the input buffer;
+    * ``_ATTR_TYPE_DICT`` is a dictionary mapping the name of each class attribute to
       the corresponding data type for the purpose of writing it to a binary file
       (e.g., in HDF5 or FITS format).
     """
     # pylint: disable=protected-access
-    cls._ATTRIBUTES = tuple(cls._LAYOUT.keys())
-    cls._ATTR_TYPES = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
+    cls._ATTR_NAMES = tuple(cls._LAYOUT.keys())
+    cls._ATTR_IDX_DICT = {name: idx for name, (idx, _) in cls._LAYOUT.items() if idx is not None}
+    cls._ATTR_TYPE_DICT = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
     return cls
 
 
@@ -114,6 +119,7 @@ class AbstractAstroPixHit(ABC):
     _SIZE = None
     _LAYOUT = None
 
+    @abstractmethod
     def __init__(self, data: bytearray) -> None:
         """Constructor.
         """
@@ -123,9 +129,8 @@ class AbstractAstroPixHit(ABC):
         # Build a bit pattern to extract the fields and loop over the hit fields
         # to set all the class members.
         bit_pattern = BitPattern(self._data)
-        for name, (idx, _) in self._LAYOUT.items():
-            if idx is not None:
-                setattr(self, name, bit_pattern[idx])
+        for name, idx in self._ATTR_IDX_DICT.items():
+            setattr(self, name, bit_pattern[idx])
 
     @staticmethod
     def gray_to_decimal(gray: int) -> int:
@@ -144,84 +149,26 @@ class AbstractAstroPixHit(ABC):
             decimal ^= mask  # XOR each shifted bit
         return decimal
 
-    def _format_attributes(self, attrs: tuple[str], fmts: tuple[str] = None) -> tuple[str]:
-        """Helper function to join a given set of class attributes in a properly
-        formatted string.
-
-        Arguments
-        ---------
-        attrs : tuple
-            The names of the class attributes we want to include in the representation.
-
-        fmts : tuple, optional
-            If present determines the formatting of the given attributes.
-        """
-        vals = (getattr(self, attr) for attr in attrs)
-        if fmts is None:
-            fmts = ('%s' for _ in attrs)
-        return tuple(fmt % val for val, fmt in zip(vals, fmts))
-
-    def _repr(self, attrs: tuple[str], fmts: tuple[str] = None) -> str:
-        """Helper function to provide sensible string formatting for the packets.
-
-        The basic idea is that concrete classes would use this to implement their
-        `__repr__()` and/or `__str__()` special dunder methods.
-
-        Arguments
-        ---------
-        attrs : tuple
-            The names of the class attributes we want to include in the representation.
-
-        fmts : tuple, optional
-            If present determines the formatting of the given attributes.
-        """
-        vals = self._format_attributes(attrs, fmts)
-        info = ', '.join([f'{attr}={val}' for attr, val in zip(attrs, vals)])
-        return f'{self.__class__.__name__}({info})'
-
-    def _text(self, attrs: tuple[str], fmts: tuple[str], separator: str) -> str:
-        """Helper function for text formatting.
-
-        Note the output includes a trailing endline.
-
-        Arguments
-        ---------
-        attrs : tuple
-            The names of the class attributes we want to include in the representation.
-
-        fmts : tuple,
-            Determines the formatting of the given attributes.
-
-        separator : str
-            The separator between different fields.
-        """
-        vals = self._format_attributes(attrs, fmts)
-        return f'{separator.join(vals)}\n'
-
-    @classmethod
-    def text_header(cls, attrs=None, separator: str = ',') -> str:
-        """Return a proper header for a text file representing a list of hits.
-        """
-        if attrs is None:
-            attrs = cls._ATTRIBUTES
-        return separator.join(attrs)
-
-    def to_csv(self, attrs=None) -> str:
-        """Return the hit representation in csv format.
-        """
-        if attrs is None:
-            attrs = self._ATTRIBUTES
-        return self._text(attrs, fmts=None, separator=',')
-
     def __eq__(self, other: 'AbstractAstroPixHit') -> bool:
         """Comparison operator---this is handy in the unit tests.
         """
         return self._data == other._data
 
+    @classmethod
+    def text_header(cls, attrs=None, separator: str = ',') -> str:
+        """Return a proper header for a text file representing a list of hits.
+        """
+        return ''
+
+    def to_csv(self, attrs=None) -> str:
+        """Return the hit representation in csv format.
+        """
+        return ''
+
     def __str__(self) -> str:
         """String formatting.
         """
-        return self._repr(self._ATTRIBUTES)
+        return f'{self.__class__.__name__} {self.__dict__}'
 
 
 @hitclass
