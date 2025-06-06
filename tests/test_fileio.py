@@ -140,7 +140,7 @@ def test_table():
     print(table)
 
 
-def _test_csv_convert():
+def test_csv():
     """Read a sample real .apx file and convert it to csv.
 
     Note we don't really do much with the converted file, other than printing a

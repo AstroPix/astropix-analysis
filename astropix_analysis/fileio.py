@@ -194,17 +194,14 @@ class AstroPixBinaryFile:
             for hit in hits:
                 table.add_row(hit.attribute_values(col_names))
         logger.info(f'Done, {len(table)} row(s) populated.')
+        logger.info('Adding metadata...')
+        table.meta['comments'] = [f'{self.header}']
         return table
 
 
-def _convert_apx(input_file_path: str, readout_class: type, converter: typing.Callable,
-                 extension: str, output_file_path: str = None, header: str = None,
-                 open_mode: str = 'w', encoding: str = FileHeader.ENCODING) -> str:
-    """Generic conversion factory for AstroPixBinaryFile objects.
-
-    This is designed to open an astropix binary files, loop over the readouts and
-    hits inside, and write the data to a (properly formatted output file). This
-    method should help implementing actual converters, e.g., to cvs of HDF5 formats.
+def apx_convert(input_file_path: str, readout_class: type, format_: str,
+                output_file_path: str = None, overwrite: bool = True, **kwargs):
+    """Generic binary file conversion function.
 
     Arguments
     ---------
@@ -215,69 +212,37 @@ def _convert_apx(input_file_path: str, readout_class: type, converter: typing.Ca
         The concrete AbstractAstroPixReadout subclass of the readout object written
         in the input file.
 
-    converter : callable
-        The conversion method mapping the hits in the input file to the content
-        of the output file. (Note we are calling ``converter(hit)`` in the event
-        loop, so this might either be a method of the proper hit class, or anything
-        that can operate accepting a hit object as the only argument.)
-
-    extension : str
-        Extension for the output file, including the leading ``.`` (e.g, ``.csv``).
-        This is used to determine the path to the output file when the latter is
-        not passed as an argument.
+    format_ : str
+        The output format. See https://docs.astropy.org/en/latest/io/unified_table.html
+        for a full list of all available options.
 
     output_file_path : str (optional)
         The full path to the output file. If this is None, the path is made by
         just changing the extension of the input file.
-
-    header : str (optional)
-        Optional header information, to be written at the beginning of the output
-        file.
-
-    open_mode : str (default 'w')
-        The open mode for the output file.
-
-    encoding : str (default FileHeader.ENCODING)
-        The encoding (when necessary) for the output file.
     """
     # pylint: disable=protected-access
-    _ext = AstroPixBinaryFile._EXTENSION
+    src_ext = AstroPixBinaryFile._EXTENSION
+    dest_ext = f'.{format_}'
     # Check the extension of the input file.
-    if not input_file_path.endswith(_ext):
-        raise RuntimeError(f'{input_file_path} has the wrong extension (expecting {_ext})')
+    if not input_file_path.endswith(src_ext):
+        raise RuntimeError(f'{input_file_path} has the wrong extension (expecting {src_ext})')
     # If we don't provide the full path to the output file, we make up one by just
     # changing the file extension.
-    if output_file_path is None and extension is not None:
-        output_file_path = input_file_path.replace(_ext, extension)
-    if not output_file_path.endswith(extension):
-        raise RuntimeError(f'{output_file_path} has the wrong extension (expecting {extension})')
+    if output_file_path is None:
+        output_file_path = input_file_path.replace(src_ext, dest_ext)
     # We are ready to go.
     logger.info(f'Converting {input_file_path} file to {output_file_path}...')
     # Open the input and output files...
-    with AstroPixBinaryFile(readout_class).open(input_file_path) as input_file, \
-         open(output_file_path, open_mode, encoding=encoding) as output_file:
-        # If necessary, write the header.
-        if header is not None:
-            output_file.write(header)
-        # Start the event loop.
-        num_hits = 0
-        for readout in input_file:
-            for hit in readout.decode():
-                output_file.write(converter(hit))
-                num_hits += 1
-    logger.info(f'Done, {num_hits} hit(s) written')
+    with AstroPixBinaryFile(readout_class).open(input_file_path) as input_file:
+        table = input_file.to_table()
+    logger.info(f'Writing tabular data in {format_} format to {output_file_path}...')
+    table.write(output_file_path, overwrite=overwrite, **kwargs)
     return output_file_path
 
 
 def apx_to_csv(input_file_path: str, readout_class: type, output_file_path: str = None) -> str:
     """Convert an AstroPix binary file to csv.
     """
-    hit_class = readout_class.HIT_CLASS
-    converter = hit_class.to_csv
-    extension = '.csv'
-    # We need to decide whether we want to include some representation of the
-    # header of the input file in the output cvs file?
-    apx_header = AstroPixBinaryFile.read_file_header(input_file_path)
-    header = f'# {apx_header}\n# {hit_class.text_header()}\n'
-    return _convert_apx(input_file_path, readout_class, converter, extension,
-                        output_file_path, header)
+    format_ = 'csv'
+    kwargs = dict(comment='# ')
+    return apx_convert(input_file_path, readout_class, format_, output_file_path, **kwargs)
