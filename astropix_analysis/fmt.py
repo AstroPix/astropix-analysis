@@ -161,27 +161,13 @@ class AbstractAstroPixHit(ABC):
         return decimal
 
     @classmethod
-    def _numpy_types(cls, attribute_names: list[str] = None) -> list[type]:
-        """Return a list of the proper numpy types for a given set of attribute
-        names of a given hit type.
-
-        This is used, e.g., for creating an empty astropy table to save a list
-        of hits to persistent storage.
-
-        Arguments
-        ---------
-        attribute_names : str
-            The name of the hit attributes.
-        """
-        if attribute_names is None:
-            attribute_names = cls.ATTRIBUTE_NAMES
-        return [cls._ATTR_TYPE_DICT[name] for name in attribute_names]
-
-    @classmethod
     def empty_table(cls, attribute_names: list[str] = None) -> astropy.table.Table:
         """Return an astropy empty table with the proper column types for the
         concrete hit type.
 
+        Note this is checking that all the attribute names are valid and tries and
+        raise a useful exception if that is not the case.
+
         Arguments
         ---------
         attribute_names : str
@@ -189,7 +175,11 @@ class AbstractAstroPixHit(ABC):
         """
         if attribute_names is None:
             attribute_names = cls.ATTRIBUTE_NAMES
-        types = cls._numpy_types(attribute_names)
+        for name in attribute_names:
+            if name not in cls.ATTRIBUTE_NAMES:
+                raise RuntimeError(f'Invalid attribute "{name}" for {cls.__name__}---'
+                                   f'valid attributes are {cls.ATTRIBUTE_NAMES}')
+        types = [cls._ATTR_TYPE_DICT[name] for name in attribute_names]
         return astropy.table.Table(names=attribute_names, dtype=types)
 
     def attribute_values(self, attribute_names: list[str] = None) -> list:
