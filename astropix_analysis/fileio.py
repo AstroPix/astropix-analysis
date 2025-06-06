@@ -217,6 +217,10 @@ def _apx_convert(input_file_path: str, readout_class: type, format_: str,
         The output format. See https://docs.astropy.org/en/latest/io/unified_table.html
         for a full list of all available options.
 
+    col_names : list of str (optional)
+        Hit attributes selected for being included in the output file. By default
+        all the attributes are included.
+
     output_file_path : str (optional)
         The full path to the output file. If this is None, the path is made by
         just changing the extension of the input file.
@@ -282,7 +286,7 @@ SUPPORTED_TABLE_FORMATS = tuple(_CONVERTER_DICT.keys())
 
 def apx_convert(input_file_path: str, readout_class: type, format_: str,
                 col_names: list[str] = None, output_file_path: str = None):
-    """
+    """Generic conversion function for astropix binary files.
     """
     converter = _CONVERTER_DICT[format_]
     args = input_file_path, readout_class, col_names, output_file_path
