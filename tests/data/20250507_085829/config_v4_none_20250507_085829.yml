@@ -1,0 +1,201 @@
+astropix4:
+  telescope:
+    nchips: 1
+  geometry:
+    cols: 16
+    rows: 35
+  config:
+    digitalconfig:
+      interrupt_pushpull:
+      - 1
+      - 0
+      clkmux:
+      - 1
+      - 0
+      timerend:
+      - 4
+      - 0
+      slowdownldpix:
+      - 4
+      - 0
+      slowdownldcol:
+      - 5
+      - 0
+      maxcyc:
+      - 6
+      - 63
+      resetckdiv:
+      - 4
+      - 15
+      nu1:
+      - 32
+      - 0
+      tdacmux:
+      - 1
+      - 0
+      Reset:
+      - 1
+      - 0
+      PCH:
+      - 1
+      - 0
+      enRamPCH:
+      - 1
+      - 1
+      nu2:
+      - 5
+      - 0
+      enLVDSterm:
+      - 1
+      - 1
+      enPLL:
+      - 1
+      - 1
+      enLVDS:
+      - 1
+      - 0
+      nu3:
+      - 5
+      - 0
+    biasconfig:
+      DisHiDR:
+      - 1
+      - 0
+      q01:
+      - 1
+      - 0
+      qon0:
+      - 1
+      - 0
+      qon1:
+      - 1
+      - 1
+      qon2:
+      - 1
+      - 0
+      qon3:
+      - 1
+      - 1
+    idacs:
+      blres:
+      - 6
+      - 0
+      vpdac:
+      - 6
+      - 0
+      vn1:
+      - 6
+      - 20
+      vnfb:
+      - 6
+      - 1
+      vnfoll:
+      - 6
+      - 2
+      nu5:
+      - 6
+      - 0
+      vndel:
+      - 6
+      - 30
+      incp:
+      - 6
+      - 10
+      ipvco:
+      - 6
+      - 0
+      vn2:
+      - 6
+      - 0
+      vnfoll2:
+      - 6
+      - 1
+      vnbias:
+      - 6
+      - 10
+      vpload:
+      - 6
+      - 5
+      nu13:
+      - 6
+      - 0
+      vncomp:
+      - 6
+      - 2
+      vpfoll:
+      - 6
+      - 10
+      nu16:
+      - 6
+      - 0
+      vprec:
+      - 6
+      - 10
+      vnrec:
+      - 6
+      - 10
+    vdacs:
+      blpix:
+      - 10
+      - 568
+      thpix:
+      - 10
+      - 610
+      vcasc2:
+      - 10
+      - 625
+      vtest:
+      - 10
+      - 682
+      vinj:
+      - 10
+      - 170
+    recconfig:
+      col0:
+      - 38
+      - 68719476735
+      col1:
+      - 38
+      - 68719476734
+      col2:
+      - 38
+      - 274877906940
+      col3:
+      - 38
+      - 68719476734
+      col4:
+      - 38
+      - 68719476734
+      col5:
+      - 38
+      - 68719476734
+      col6:
+      - 38
+      - 68719476734
+      col7:
+      - 38
+      - 68719476734
+      col8:
+      - 38
+      - 68719476734
+      col9:
+      - 38
+      - 68719476734
+      col10:
+      - 38
+      - 68719476734
+      col11:
+      - 38
+      - 68719476734
+      col12:
+      - 38
+      - 68719476734
+      col13:
+      - 38
+      - 68719476734
+      col14:
+      - 38
+      - 68719476734
+      col15:
+      - 38
+      - 68719476734

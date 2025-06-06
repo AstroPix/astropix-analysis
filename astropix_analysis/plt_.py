@@ -13,8 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-"""matplotlib configuration module.
+"""matplotlib configuration module for the astropix chip.
 """
 
 import sys
@@ -68,7 +67,6 @@ MONOSPACE_FONTS = [
 ]
 
 
-
 class PlotCard(dict):
 
     """Small class reperesenting a text card.
@@ -85,7 +83,7 @@ class PlotCard(dict):
     KEY_KWARGS = dict(color='gray', size='x-small', ha='left', va='top')
     VALUE_KWARGS = dict(color='black', size='small', ha='left', va='top')
 
-    def __init__(self, data : dict = None) -> None:
+    def __init__(self, data: dict = None) -> None:
         """Constructor.
         """
         super().__init__()
@@ -93,7 +91,7 @@ class PlotCard(dict):
             for key, value in data.items():
                 self.add_line(key, value)
 
-    def add_line(self, key : str, value : float, fmt : str = '%g', units : str = None) -> None:
+    def add_line(self, key: str, value: float, fmt: str = '%g', units: str = None) -> None:
         """Set the value for a given key.
 
         Arguments
@@ -112,8 +110,8 @@ class PlotCard(dict):
         """
         self[key] = (value, fmt, units)
 
-    def draw(self, axes = None, x : float = 0.05, y : float = 0.95, line_spacing : float = 0.075,
-        spacing_ratio : float = 0.75) -> None:
+    def draw(self, axes=None, x: float = 0.05, y: float = 0.95, line_spacing: float = 0.075,
+             spacing_ratio: float = 0.75) -> None:
         """Draw the card.
 
         Arguments
@@ -147,8 +145,7 @@ class PlotCard(dict):
             y -= value_norm * line_spacing
 
 
-
-def last_line_color(default : str = 'black'):
+def last_line_color(default: str = 'black'):
     """Return the color used to draw the last line
     """
     try:
@@ -193,7 +190,7 @@ def setup_gca(**kwargs):
     setup_axes(plt.gca(), **kwargs)
 
 
-def _set_rc_param(key : str, value : Any):
+def _set_rc_param(key: str, value: Any):
     """Set the value for a single matplotlib parameter.
 
     The actual command is encapsulated into a try except block because this
@@ -306,7 +303,7 @@ def setup():
     # http://matplotlib.org/api/artist_api.html#module-matplotlib.text for more
     _set_rc_param('text.color', 'black')
 
-    #http://wiki.scipy.org/Cookbook/Matplotlib/UsingTex
+    # http://wiki.scipy.org/Cookbook/Matplotlib/UsingTex
     _set_rc_param('text.usetex', False)
     _set_rc_param('text.hinting', 'auto')
     _set_rc_param('text.hinting_factor', 8)

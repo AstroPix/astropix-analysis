@@ -13,13 +13,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from argparse import Namespace
+"""Analysis tools the astropix chip.
+"""
 
 import numpy as np
 
 from astropix_analysis import logger
 from astropix_analysis.plt_ import plt
-
 
 
 class Run:
@@ -52,11 +52,12 @@ class Run:
         """
         logger.info(f'Opening input file {file_path}...')
         try:
-            self.dec_ord, _, _, self.row, self.col, _, _, _, _, _, _, _, _, self.rise_time,\
-                self.fall_time, self.tot = np.loadtxt(file_path, skiprows=1, delimiter=',', unpack=True)
+            self.dec_ord, _, _, self.row, self.col, _, _, _, _, _, _, _, _, self.rise_time, \
+                self.fall_time, self.tot = \
+                np.loadtxt(file_path, skiprows=1, delimiter=',', unpack=True)
         except ValueError:
             logger.warning("ValueError found - file is probably empty")
-            self.dec_ord = [] 
+            self.dec_ord = []
             self.tot = []
             self.row = []
             self.col = []
@@ -77,6 +78,7 @@ class Run:
     def _parse_line(log_file, split_by_colon: bool = True):
         """Parse one single line from a log file.
         """
+        # pylint: disable=eval-used
         if split_by_colon:
             _, data = log_file.readline().split(':', 1)
         else:
@@ -86,7 +88,7 @@ class Run:
         return data
 
     def filter_last_tot(self, maxtot=10000):
-        """ Check for multiple trigger of the same pixel in the same buffer and return last ToT 
+        """ Check for multiple trigger of the same pixel in the same buffer and return last ToT
             Assuming events are ordered and check that dec_ord of the following line is 0
             Adding a flag to remove too-large TOT: probably a deconding issue
         """
@@ -94,13 +96,13 @@ class Run:
         if len(self) == 0:
             return filtered_tot
         for i in range(len(self)-1):
-            if self.dec_ord[i+1]==0:
-                if self.tot[i]<=maxtot:
+            if self.dec_ord[i+1] == 0:
+                if self.tot[i] <= maxtot:
                     filtered_tot.append(self.tot[i])
-        if self.tot[i]<=maxtot:
-            filtered_tot.append(self.tot[-1]) # always adding last line
+        if self.tot[i] <= maxtot:
+            filtered_tot.append(self.tot[-1])  # always adding last line
         return np.array(filtered_tot)
-        
+
     def __len__(self) -> int:
         """Return the number of events in the data file.
         """
@@ -109,12 +111,12 @@ class Run:
         return len(self.tot)
 
     def inject_pixels(self):
-        """
+        """Return whether the charge injection was enabled.
         """
         return self.options.inject
-        
+
     def trigger_threshold(self) -> float:
-        """
+        """Return the trigger threshold.
         """
         return self.options.threshold
 
@@ -124,7 +126,7 @@ class Run:
         return self.options.maxtime*60
 
     def injection_voltage(self) -> float:
-        """
+        """Return the injection voltage.
         """
         return self.options.vinj
 
@@ -151,20 +153,21 @@ class Run:
         return data
 
 
-
-if __name__ == '__main__':
-    from astropix_analysis import ASTROPIX_DATA
-    import os
-    file_path = os.path.join(ASTROPIX_DATA,  'runsuite_vscan_20241219-114807\\20241219-115526.csv') # a file with multiple redout
-    run = Run(file_path)
-    run.hit_map()
-    #run.tot_hist(np.linspace(0, 500, 501))
-    plt.figure('TOT distribution')
-    plt.hist(run.tot, bins=np.linspace(0, 500, 201), label='all entries')
-    plt.xlabel(r'TOT [$\mu$s]')
-    filtered_tot = run.filter_last_tot(1000) 
-    print(filtered_tot, np.mean(filtered_tot), np.std(filtered_tot, ddof=1))
-    #plt.figure()
-    plt.hist(filtered_tot, bins=np.linspace(0, 500, 201), alpha=0.5, label='highest entry only')
-    plt.legend()
-    plt.show()
+# if __name__ == '__main__':
+#     # MOVE ALL OF THIS TO A PROPER UNIT TEST!
+#     from astropix_analysis import ASTROPIX_DATA
+#     import os
+#     # a file with multiple redout
+#     file_path = os.path.join(ASTROPIX_DATA, 'runsuite_vscan_20241219-114807\\20241219-115526.csv')
+#     run = Run(file_path)
+#     run.hit_map()
+#     # run.tot_hist(np.linspace(0, 500, 501))
+#     plt.figure('TOT distribution')
+#     plt.hist(run.tot, bins=np.linspace(0, 500, 201), label='all entries')
+#     plt.xlabel(r'TOT [$\mu$s]')
+#     filtered_tot = run.filter_last_tot(1000)
+#     print(filtered_tot, np.mean(filtered_tot), np.std(filtered_tot, ddof=1))
+#     # plt.figure()
+#     plt.hist(filtered_tot, bins=np.linspace(0, 500, 201), alpha=0.5, label='highest entry only')
+#     plt.legend()
+#     plt.show()
