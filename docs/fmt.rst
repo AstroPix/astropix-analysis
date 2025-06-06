@@ -149,7 +149,10 @@ In a nutshell, all you have to do is:
   frame); for instance, the specification ``'column': (slice(8, 16), np.uint8)``
   is meant to indicate that the 8 bits ``8:16`` in the input buffer need to be
   mapped into a class attribute ``hit.column`` and the latter, when written to
-  binary output, is represented as a 8-bit unsigned integer;
+  binary output, is represented as a 8-bit unsigned integer; when the slice is
+  ``None``, that means that the corresponding field is not to be read from the
+  input binary buffer, but it is calculated in the constructor based on the row
+  quantities (and, still, the output type is obviously relevant);
 * decorate the concrete class with the ``@hitclass`` decorator, which calculates
   at the time of the type creation (and not every time a class instance is created)
   some useful quantities that allows for streamlining the hit manipulation;
