@@ -220,7 +220,7 @@ class AstroPix3Hit(AbstractAstroPixHit):
     _LAYOUT = {
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
-        'column': (8, np.bool),
+        'column': (8, np.uint8),
         'location': (slice(10, 16), np.uint8),
         'timestamp': (slice(16, 24), np.uint8),
         'tot_msb': (slice(28, 32), np.uint8),
