@@ -188,11 +188,11 @@ class AstroPixBinaryFile:
         """Convert the file to a astropy table.
         """
         logger.info(f'Converting {self._input_file.name} to an astropy table...')
-        table = self._readout_class.HIT_CLASS.empty_table(*col_names)
+        table = self._readout_class.HIT_CLASS.empty_table(col_names)
         for readout in self:
             hits = readout.decode()
             for hit in hits:
-                table.add_row(hit.attribute_values(*col_names))
+                table.add_row(hit.attribute_values(col_names))
         logger.info(f'Done, {len(table)} row(s) populated.')
         return table
 

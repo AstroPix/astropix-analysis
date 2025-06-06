@@ -161,7 +161,7 @@ class AbstractAstroPixHit(ABC):
         return decimal
 
     @classmethod
-    def _numpy_types(cls, *attribute_names: str) -> list[type]:
+    def _numpy_types(cls, attribute_names: list[str] = None) -> list[type]:
         """Return a list of the proper numpy types for a given set of attribute
         names of a given hit type.
 
@@ -173,10 +173,12 @@ class AbstractAstroPixHit(ABC):
         attribute_names : str
             The name of the hit attributes.
         """
+        if attribute_names is None:
+            attribute_names = self.ATTRIBUTE_NAMES
         return [cls._ATTR_TYPE_DICT[name] for name in attribute_names]
 
     @classmethod
-    def empty_table(cls, *attribute_names: str) -> astropy.table.Table:
+    def empty_table(cls, attribute_names: list[str] = None) -> astropy.table.Table:
         """Return an astropy empty table with the proper column types for the
         concrete hit type.
 
@@ -185,10 +187,12 @@ class AbstractAstroPixHit(ABC):
         attribute_names : str
             The name of the hit attributes.
         """
-        types = cls._numpy_types(*attribute_names)
+        if attribute_names is None:
+            attribute_names = self.ATTRIBUTE_NAMES
+        types = cls._numpy_types(attribute_names)
         return astropy.table.Table(names=attribute_names, dtype=types)
 
-    def attribute_values(self, *attribute_names: str) -> list:
+    def attribute_values(self, attribute_names: list[str] = None) -> list:
         """Return the value of the hit attributes for a given set of attribute names.
 
         Arguments
@@ -196,6 +200,8 @@ class AbstractAstroPixHit(ABC):
         attribute_names : str
             The name of the hit attributes.
         """
+        if attribute_names is None:
+            attribute_names = self.ATTRIBUTE_NAMES
         return [getattr(self, name) for name in attribute_names]
 
     def __eq__(self, other: 'AbstractAstroPixHit') -> bool:

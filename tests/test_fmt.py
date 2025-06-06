@@ -74,10 +74,11 @@ def test_new_decoding():
     assert (hit1.chip_id, hit1.payload, hit1.row, hit1.column) == DECODED_DATA1[0:4]
     assert hit1.tot_us == DECODED_DATA1[-1]
     # And test the exact same thing using the values() method.
-    assert hit0.attribute_values('chip_id', 'payload', 'row', 'column') == list(DECODED_DATA0[0:4])
-    assert hit0.attribute_values('tot_us') == [DECODED_DATA0[-1]]
-    assert hit1.attribute_values('chip_id', 'payload', 'row', 'column') == list(DECODED_DATA1[0:4])
-    assert hit1.attribute_values('tot_us') == [DECODED_DATA1[-1]]
+    attrs = ['chip_id', 'payload', 'row', 'column']
+    assert hit0.attribute_values(attrs) == list(DECODED_DATA0[0:4])
+    assert hit1.attribute_values(attrs) == list(DECODED_DATA1[0:4])
+    assert hit0.attribute_values(['tot_us']) == [DECODED_DATA0[-1]]
+    assert hit1.attribute_values(['tot_us']) == [DECODED_DATA1[-1]]
 
 
 def test_table():
@@ -86,10 +87,10 @@ def test_table():
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id=0)
     hit_class = readout.HIT_CLASS
     col_names = hit_class.ATTRIBUTE_NAMES
-    table = hit_class.empty_table(*col_names)
+    table = hit_class.empty_table(col_names)
     hits = readout.decode()
     for hit in hits:
-        table.add_row(hit.attribute_values(*col_names))
+        table.add_row(hit.attribute_values(col_names))
     print(table)
 
 
