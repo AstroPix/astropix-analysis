@@ -138,38 +138,42 @@ a the following definition shows.
 .. literalinclude:: ../astropix_analysis/fmt.py
    :pyobject: AstroPix4Hit
 
-At the very minimum you have to:
+In a nutshell, all you have to do is:
 
+* override the ``_SIZE`` class variable: this indicates the total size in bytes of the
+  binary buffer, as it comes from the hardware, representing a hit;
 * override the ``_LAYOUT`` class variable: this is a dictionary mapping the name
-  of the fields within each hit frame to their width in bits (it goes without
+  of each field to the corresponding slice in the input binary buffer and the desired
+  data type when the things is to be written to persistent memory (it goes without
   saying that the fields might be defined in the same order they occur in the
-  frame);
-* override the ``_ATTRIBUTES`` class variable, which generally includes all the
-  fields defined in the ``_LAYOUT``, plus any additional quantity that is
-  calculated from the aforementioned fields when the class is instantiated;
+  frame); for instance, the specification ``'column': (slice(8, 16), np.uint8)``
+  is meant to indicate that the 8 bits ``8:16`` in the input buffer need to be
+  mapped into a class attribute ``hit.column`` and the latter, when written to
+  binary output, is represented as a 8-bit unsigned integer;
+* decorate the concrete class with the ``@hitclass`` decorator, which calculates
+  at the time of the type creation (and not every time a class instance is created)
+  some useful quantities that allows for streamlining the hit manipulation;
 
 The layout machinery is designed to avoid addressing the underlying binary data
 with hard-coded indices and make it easier to reason about the hist structure.
 It leverages under the hood the small convenience class
 :class:`~astropix_analysis.fmt.BitPattern`.
 
-Hit objects come equipped with all the facilities to represent themselves in
-different formats, including, e.g., text and comma-separated values.
+Hit objects come equipped with all the facilities to represent themselves, retrieve
+a subset of the attributes in a programmatic fashion, and interface to astropy
+table to support structured binary output:
 
 .. code-block:: python
 
     print(hit)
-    AstroPix4Hit(chip_id=0, payload=7, row=0, column=5, ts_neg1=1, ts_coarse1=5167,
-                 ts_fine1=3, ts_tdc1=0, ts_neg2=0, ts_coarse2=5418, ts_fine2=6,
-                 ts_tdc2=0, ts_dec1=49581, ts_dec2=52836, tot_us=162.75, readout_id=0,
-                 timestamp=1748518075318049813)
+    AstroPix4Hit(_data = b'\x07\x01j\x17\xb0\x15*\xc0', chip_id = 0, payload = 7,
+                 row = 0, column = 5, ts_neg1 = 1, ts_coarse1 = 5167, ts_fine1 = 3,
+                 ts_tdc1 = 0, ts_neg2 = 0, ts_coarse2 = 5418, ts_fine2 = 6,
+                 ts_tdc2 = 0, ts_dec1 = 49581, ts_dec2 = 52836, tot_us = 162.75,
+                 readout_id = 0, timestamp = 1749192783460573717)
 
-    print(hit.text_header())
-    chip_id,payload,row,column,ts_neg1,ts_coarse1,ts_fine1,ts_tdc1,ts_neg2,ts_coarse2,ts_fine2,ts_tdc2,ts_dec1,ts_dec2,tot_us,readout_id,timestamp
-
-    print(hit.to_csv())
-    0,7,0,5,1,5167,3,0,0,5418,6,0,49581,52836,162.75,0,1748518075318049813
-
+    print(hit.attribute_values(['chip_id', 'payload', 'row', 'column']))
+    [0, 7, 0, 5]
 
 
 Module documentation

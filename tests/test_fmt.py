@@ -65,6 +65,7 @@ def test_new_decoding():
     assert len(hits) == 2
     for hit in hits:
         print(hit)
+        print(hit.attribute_values(['chip_id', 'payload', 'row', 'column']))
     hit0, hit1 = hits[0], hits[1]
     # Compare the hit objects with the content of the csv files---note we are
     # assuming that if the TOT value in us is ok, then all the intermediate timestamp
