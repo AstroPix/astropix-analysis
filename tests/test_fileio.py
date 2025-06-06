@@ -20,8 +20,11 @@
 import os
 import tempfile
 
+import numpy as np
+
 from astropix_analysis import logger
-from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apx_to_csv
+from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, \
+    apx_convert, apx_load, SUPPORTED_TABLE_FORMATS
 from astropix_analysis.fmt import AstroPix4Readout
 
 
@@ -140,24 +143,38 @@ def test_table():
     print(table)
 
 
-def test_csv():
-    """Read a sample real .apx file and convert it to csv.
-
-    Note we don't really do much with the converted file, other than printing a
-    few lines on the terminal---we do verify, though, that the conversion get to
-    the end of the input file.
+def test_table_io():
+    """Test the full IO from the binary astropix format to all the supported
+    analysis formats.
     """
     run_id = '20250507_085829'
     file_name = f'{run_id}_data.apx'
     file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
-    kwargs = dict(suffix='.csv', delete=True)
-    with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
-        # Horrible trick to get a path to a temp file, rather than an actual file object.
-        output_file.close()
-        out = apx_to_csv(file_path, AstroPix4Readout, output_file_path=output_file.name)
-        assert out == output_file.name
-        with open(output_file.name, encoding=FileHeader.ENCODING) as _out:
-            for _ in range(10):
-                print(_out.readline())
-    # Remove the temporary file.
-    _rm_tmpfile(output_file)
+
+    # Loop over the input file once and create an astropy table in memory.
+    with AstroPixBinaryFile(AstroPix4Readout).open(file_path) as input_file:
+        original_table = input_file.to_table()
+    num_cols = len(original_table.columns)
+    num_rows = len(original_table)
+
+    # Make sure that, for all the supported format, the I/O roundtrips
+    for format_ in SUPPORTED_TABLE_FORMATS:
+        # Convert the binary file to a given data format...
+        kwargs = dict(suffix=f'.{format_}', delete=False)
+        with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
+            output_file.close()
+            args = file_path, AstroPix4Readout, format_, None, output_file.name
+            assert apx_convert(*args) == output_file.name
+        # ... read back the table...
+        header, table = apx_load(output_file.name)
+        print(header)
+        print(header['configuration'])
+        print(table)
+        # And make sure it looks identical to the original one.
+        assert len(table.columns) == num_cols
+        assert len(table) == num_rows
+        for col_name in table.colnames:
+            logger.debug(f'Checking column {col_name} against the original file...')
+            assert np.allclose(table[col_name], original_table[col_name])
+        # Remove the temporary file.
+        _rm_tmpfile(output_file)
