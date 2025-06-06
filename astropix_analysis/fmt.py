@@ -174,7 +174,7 @@ class AbstractAstroPixHit(ABC):
             The name of the hit attributes.
         """
         if attribute_names is None:
-            attribute_names = self.ATTRIBUTE_NAMES
+            attribute_names = cls.ATTRIBUTE_NAMES
         return [cls._ATTR_TYPE_DICT[name] for name in attribute_names]
 
     @classmethod
@@ -188,7 +188,7 @@ class AbstractAstroPixHit(ABC):
             The name of the hit attributes.
         """
         if attribute_names is None:
-            attribute_names = self.ATTRIBUTE_NAMES
+            attribute_names = cls.ATTRIBUTE_NAMES
         types = cls._numpy_types(attribute_names)
         return astropy.table.Table(names=attribute_names, dtype=types)
 
@@ -213,7 +213,7 @@ class AbstractAstroPixHit(ABC):
         """String formatting.
         """
         return f'{self.__class__.__name__}'\
-               f'({', '.join(f'{key} = {value}' for key, value in self.__dict__.items())})'
+               f"({', '.join(f'{key} = {value}' for key, value in self.__dict__.items())})"
 
 
 @hitclass
