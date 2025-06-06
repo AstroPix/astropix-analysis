@@ -200,7 +200,8 @@ class AstroPixBinaryFile:
 
 
 def _apx_convert(input_file_path: str, readout_class: type, format_: str,
-                 output_file_path: str = None, overwrite: bool = True, **kwargs):
+                 col_names: list[str] = None, output_file_path: str = None,
+                 overwrite: bool = True, **kwargs):
     """Generic binary file conversion function.
 
     Arguments
@@ -234,34 +235,40 @@ def _apx_convert(input_file_path: str, readout_class: type, format_: str,
     logger.info(f'Converting {input_file_path} file to {output_file_path}...')
     # Open the input and output files...
     with AstroPixBinaryFile(readout_class).open(input_file_path) as input_file:
-        table = input_file.to_table()
+        table = input_file.to_table(col_names)
     logger.info(f'Writing tabular data in {format_} format to {output_file_path}...')
     table.write(output_file_path, overwrite=overwrite, **kwargs)
     return output_file_path
 
 
-def apx_to_csv(input_file_path: str, readout_class: type, output_file_path: str = None) -> str:
+def apx_to_csv(input_file_path: str, readout_class: type, col_names: list[str] = None,
+               output_file_path: str = None) -> str:
     """Convert an AstroPix binary file to csv.
     """
     format_ = 'csv'
     kwargs = dict(comment='# ')
-    return _apx_convert(input_file_path, readout_class, format_, output_file_path, **kwargs)
+    args = input_file_path, readout_class, format_, col_names, output_file_path
+    return _apx_convert(*args, **kwargs)
 
 
-def apx_to_fits(input_file_path: str, readout_class: type, output_file_path: str = None) -> str:
+def apx_to_fits(input_file_path: str, readout_class: type, col_names: list[str] = None,
+                output_file_path: str = None) -> str:
     """Convert an AstroPix binary file to FITS.
     """
     format_ = 'fits'
     kwargs = dict()
-    return _apx_convert(input_file_path, readout_class, format_, output_file_path, **kwargs)
+    args = input_file_path, readout_class, format_, col_names, output_file_path
+    return _apx_convert(*args, **kwargs)
 
 
-def apx_to_hdf5(input_file_path: str, readout_class: type, output_file_path: str = None) -> str:
-    """Convert an AstroPix binary file to FITS.
+def apx_to_hdf5(input_file_path: str, readout_class: type, col_names: list[str] = None,
+                output_file_path: str = None) -> str:
+    """Convert an AstroPix binary file to HDF5.
     """
     format_ = 'hdf5'
     kwargs = dict()
-    return _apx_convert(input_file_path, readout_class, format_, output_file_path, **kwargs)
+    args = input_file_path, readout_class, format_, col_names, output_file_path
+    return _apx_convert(*args, **kwargs)
 
 
 _CONVERTER_DICT = {
@@ -274,7 +281,9 @@ SUPPORTED_TABLE_FORMATS = tuple(_CONVERTER_DICT.keys())
 
 
 def apx_convert(input_file_path: str, readout_class: type, format_: str,
-                output_file_path: str = None):
+                col_names: list[str] = None, output_file_path: str = None):
     """
     """
-    return _CONVERTER_DICT[format_](input_file_path, readout_class, output_file_path)
+    converter = _CONVERTER_DICT[format_]
+    args = input_file_path, readout_class, col_names, output_file_path
+    return converter(*args)

@@ -24,11 +24,6 @@ from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_convert
 
 
 _DESCRIPTION = """Astropix binary data file converter.
-
-Although at this point all this is really doing is converting Astropix4 binary
-data in cvs format, the script will hopefully evolve into something more generally
-useful, supporting multiple versions of the Astropix chip and multiple output
-formats.
 """
 
 _READOUT_CLASS_NAMES = ('AstroPix4Readout', )
@@ -42,7 +37,7 @@ def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
     readout_class = _READOUT_CLASS_DICT[args.readout]
-    apx_convert(args.infile, readout_class, args.format, args.outfile)
+    apx_convert(args.infile, readout_class, args.format, args.columns, args.outfile)
 
 
 if __name__ == "__main__":
@@ -54,6 +49,8 @@ if __name__ == "__main__":
                         help='the name of the readout class stored in the file')
     parser.add_argument('--format', type=str, choices=SUPPORTED_TABLE_FORMATS,
                         required=True, help='output data format')
+    parser.add_argument('--columns', nargs='+', type=str, default=None,
+                        help='columns selected for the output file')
     parser.add_argument('--outfile', type=str, default=None,
                         help='path to the output file (optional)')
 
