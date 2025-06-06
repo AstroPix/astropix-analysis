@@ -65,6 +65,17 @@ class FileHeader:
         """
         self._content = content
 
+    def serialize(self) -> str:
+        """Serialize the header into a piece of text.
+        """
+        return json.dumps(self._content)
+
+    @classmethod
+    def deserialize(cls, text: str) -> FileHeader:
+        """Deserialize a fully-fledged FileHeader object from a piece of text.
+        """
+        return cls(json.loads(text))
+
     def __getitem__(self, item):
         """Make the header indexable.
         """
@@ -78,7 +89,7 @@ class FileHeader:
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        data = json.dumps(self._content).encode(self.ENCODING)
+        data = self.serialize().encode(self.ENCODING)
         output_file.write(self.MAGIC_NUMBER.encode(self.ENCODING))
         output_file.write(struct.pack(self._HEADER_LENGTH_FMT, len(data)))
         output_file.write(data)
@@ -97,8 +108,7 @@ class FileHeader:
             raise RuntimeError(f'Invalid magic number ({magic}), expected {cls.MAGIC_NUMBER}')
         header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
         header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
-        content = json.loads(input_file.read(header_length).decode(cls.ENCODING))
-        return cls(content)
+        return cls.deserialize(input_file.read(header_length).decode(cls.ENCODING))
 
     def __eq__(self, other: 'FileHeader') -> bool:
         """Comparison operator---this is useful in the unit tests in order to make
@@ -205,9 +215,7 @@ class AstroPixBinaryFile:
         # specific settings, meta['comments'] gets written in the output file
         # in pretty much all formats, so we try and take advantage of this not
         # to loose the header information.
-        header_string = json.dumps(self.header._content)
-        print(header_string)
-        table.meta['comments'] = [header_string]
+        table.meta['comments'] = [self.header.serialize()]
         return table
 
 
@@ -292,6 +300,5 @@ def apx_load(file_path: str) -> astropy.table.Table:
     table = astropy.table.Table.read(file_path, **kwargs)
     # Note we have to join the pieces because the FITS format treats things
     # differently.
-    header_string = ''.join(table.meta['comments'])
-    header = FileHeader(json.loads(header_string))
+    header = FileHeader.deserialize(''.join(table.meta['comments']))
     return header, table
