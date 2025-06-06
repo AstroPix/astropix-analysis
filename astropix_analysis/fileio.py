@@ -270,7 +270,7 @@ def apx_to_hdf5(input_file_path: str, readout_class: type, col_names: list[str] 
     """Convert an AstroPix binary file to HDF5.
     """
     format_ = 'hdf5'
-    kwargs = dict()
+    kwargs = dict(path='HITS')
     args = input_file_path, readout_class, format_, col_names, output_file_path
     return _apx_convert(*args, **kwargs)
 
