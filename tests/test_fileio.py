@@ -20,8 +20,6 @@
 import os
 import tempfile
 
-import numpy as np
-
 from astropix_analysis import logger
 from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apx_to_csv
 from astropix_analysis.fmt import AstroPix4Readout
