@@ -10,7 +10,9 @@ dependencies = [
   "numpy",
   "matplotlib",
   "scipy",
+  "astropy",
   "pandas",
+  "h5py",
   "tqdm",
   "pydata-sphinx-theme"
 ]
