@@ -1,6 +1,6 @@
 
 # Base package root. All the other relevant folders are relative to this location.
-$env:ASTROPIX_ANALYSIS_ROOT = Get-Location
+$env:ASTROPIX_ANALYSIS_ROOT = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 
 # Add the root folder to the $PYTHONPATH environmental variable.
 $env:PYTHONPATH = "$env:ASTROPIX_ANALYSIS_ROOT;$env:PYTHONPATH"
