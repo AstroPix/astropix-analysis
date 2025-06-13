@@ -9,6 +9,6 @@ $env:PYTHONPATH = "$env:ASTROPIX_ANALYSIS_ROOT;$env:PYTHONPATH"
 $env:PATH = "$env:ASTROPIX_ANALYSIS_ROOT\bin;$env:PATH"
 
 # Print the new environment for verification.
-Write-Output "ASTROPIX_ANALYSIS_ROOT: $env:ASTROPIX_ANALYSIS_ROOT"
-Write-Output "PATH: $env:PATH"
-Write-Output "PYTHONPATH: $env:PYTHONPATH"
+Write-Output "ASTROPIX_ANALYSIS_ROOT -> $env:ASTROPIX_ANALYSIS_ROOT"
+Write-Output "PATH -> $env:PATH"
+Write-Output "PYTHONPATH -> $env:PYTHONPATH"
