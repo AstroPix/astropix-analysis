@@ -8,7 +8,7 @@ import time
 import tqdm
 import os
 from datetime import datetime
-import Source_Decoder
+import New_Source_Decoder
 import Quad_Chip_Decoder
 import argparse
 
@@ -85,7 +85,7 @@ def main(args):
     decoded_data_list=[]
     for line in first_data:
         if chip_version=='3' or chip_version=='4':
-            Initial_Live_Decoding_Output=Source_Decoder.Decode_and_Write_Line(line,stored_split_first_part,int(chip_version),line_counter,csv_write_file)
+            Initial_Live_Decoding_Output=New_Source_Decoder.Decode_and_Write_Line(line,stored_split_first_part,int(chip_version),line_counter,csv_write_file)
             if Initial_Live_Decoding_Output is not None:
                 decoded_line, stored_split_first_part, line_counter = Initial_Live_Decoding_Output[0], Initial_Live_Decoding_Output[1], Initial_Live_Decoding_Output[2]
                 for item in decoded_line:
@@ -284,7 +284,7 @@ def main(args):
             decoded_data_list=[]
             for line in new_data:
                 if chip_version=='3' or chip_version=='4':
-                    Live_Decoding_Output=Source_Decoder.Decode_and_Write_Line(line,stored_split_first_part,int(chip_version),line_counter,csv_write_file)
+                    Live_Decoding_Output=New_Source_Decoder.Decode_and_Write_Line(line,stored_split_first_part,int(chip_version),line_counter,csv_write_file)
                     if Live_Decoding_Output is not None:
                         decoded_line, stored_split_first_part, line_counter = Live_Decoding_Output[0], Live_Decoding_Output[1], Live_Decoding_Output[2]
                         for item in decoded_line:
