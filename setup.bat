@@ -1,14 +1,15 @@
-:: Setup for window - will be removed at some point
-@echo off
+@ECHO OFF
 
-:: Base package root. Change it for your directory
-set ASTROPIX_ANALYSIS_ROOT=C:\Users\sgro\work\AstroPix\astropix-analysis
+:: Base package root. All the other relevant folders are relative to this location.
+set "ASTROPIX_ANALYSIS_ROOT=%~dp0"
 
-:: This is were i store data
-set ASTROPIX_DATA=C:\Users\sgro\work\AstroPix\astropix-outdata
+:: Add the root folder to the $PYTHONPATH environmental variable.
+set "PYTHONPATH=%ASTROPIX_ANALYSIS_ROOT%;%PYTHONPATH%"
 
-:: AstroPix library package root. Change it for your directory
-set ASTROPIX_PYTHON_ROOT=C:\Users\sgro\work\AstroPix\astropix-python
+:: Add the bin folder to the $PATH environmental variable.
+set "PATH=%ASTROPIX_ANALYSIS_ROOT%\bin;%PATH%"
 
-:: Add the root folder to the $PYTHONPATH to import  the relevant modules.
-set PYTHONPATH=%ASTROPIX_ANALYSIS_ROOT%;%ASTROPIX_PYTHON_ROOT%
+:: Print the new environment for verification.
+echo "ASTROPIX_ANALYSIS_ROOT -> %ASTROPIX_ANALYSIS_ROOT%"
+echo "PATH -> %PATH%"
+echo "PYTHONPATH -> %PYTHONPATH%"
