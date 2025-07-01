@@ -22,13 +22,10 @@ import struct
 import time
 import typing
 
-<<<<<<< HEAD
 import astropy.table
 import numpy as np
 
-=======
 from astropix_analysis import logger
->>>>>>> main
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
 # forever to speedup the computation at runtime and avoid doing the same
