@@ -22,9 +22,13 @@ import struct
 import time
 import typing
 
+<<<<<<< HEAD
 import astropy.table
 import numpy as np
 
+=======
+from astropix_analysis import logger
+>>>>>>> main
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
 # forever to speedup the computation at runtime and avoid doing the same
@@ -480,6 +484,13 @@ class AbstractAstroPixReadout(ABC):
             # a proper slice, otherwise we get an int.
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
+            # Handle the case where the last hit is truncated in the original
+            # readout data.
+            if pos + self.HIT_CLASS._SIZE >= len(self._readout_data):
+                data = self._readout_data[pos:]
+                logger.warning(f'Truncated hit data ({data}, {len(data)} byte(s)) '
+                               'at the end of the readout, skipping...')
+                break
             data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
             # If necessary, reverse the bit order in the hit data.
             if reverse:
