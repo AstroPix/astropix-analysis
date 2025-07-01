@@ -17,10 +17,13 @@
 """
 
 from __future__ import annotations
-from abc import ABC
+from abc import ABC, abstractmethod
 import struct
 import time
 import typing
+
+import astropy.table
+import numpy as np
 
 from astropix_analysis import logger
 
@@ -66,57 +69,33 @@ class BitPattern(str):
         return int(super().__getitem__(index), 2)
 
 
-class AstroPixHitMeta(type):
+def hitclass(cls: type) -> type:
+    """Small decorator to support automatic generation of concrete hit classes.
 
-    """Metaclass for the AbstractAstroPixHit abstract base class.
+    Here we simply calculate some useful class variables that are needed to
+    unpack the binary data and/or write the hit to different data formats. Having
+    a decorator allows to do the operation once and for all at the time the
+    type is created, as opposed to do it over and over again each time an instance
+    of the class is created. More specifically:
 
-    This is basically calculating the overall size (in bytes) of the underlying
-    binary payload, given the ``_LAYOUT`` class variable, and setting an additional
-    ``_SIZE`` class variable in all concrete subclasses of AbstractAstroPixHit,
-    that can be used at runtime when decoding a readout. (Note we cannot set
-    ``_SIZE`` directly in the AbstractAstroPixHit class definition because at that
-    point ``_LAYOUT`` is still ``None``.)
+    * ``ATTRIBUTE_NAMES`` is a tuple containing all the hit field names that can be
+      used, e.g., for printing out the hit itself;
+    * ``_ATTR_IDX_DICT`` is a dictionary mapping the name of each attribute to
+      the corresponding slice of the input binary buffer---note it does not include
+      the attributes that are not encoded in the input buffer, but are calculated
+      at construction time; this facilitates unpacking the input buffer;
+    * ``_ATTR_TYPE_DICT`` is a dictionary mapping the name of each class attribute to
+      the corresponding data type for the purpose of writing it to a binary file
+      (e.g., in HDF5 or FITS format).
     """
-
-    def __new__(mcs, name, bases, namespace):
-        """Overloaded method.
-        """
-        # Retrieve the _LAYOUT class variable for the class at hand (not this
-        # will be None for the abstract base class AbstractAstroPixHit).
-        layout = namespace['_LAYOUT']
-        # For the abstract base class, set the size to zero.
-        if layout is None:
-            size = 0
-        # For all concrete subclasses, properly calculate the size.
-        else:
-            size = AstroPixHitMeta._calculate_size(layout)
-        # In any case, we set the _SIZE class variable.
-        namespace['_SIZE'] = size
-        return super().__new__(mcs, name, bases, namespace)
-
-    @staticmethod
-    def _calculate_size(layout: dict[str, int]) -> int:
-        """Calculate the size of a concrete hit data structure in bytes.
-
-        This is achieved by summing up all the values in the _LAYOUT dictionary,
-        and does not include the size of the hit header and trailer within the
-        readout.
-
-        Arguments
-        ---------
-        layout : dict
-            The layout of the hit, as a dictionary of field names and their
-            respective widths in bits.
-        """
-        num_bits = sum(layout.values())
-        size, reminder = divmod(num_bits, 8)
-        if reminder != 0:
-            raise RuntimeError(f'Invalid layout {layout}: size in bit ({num_bits}) '
-                               'is not a multiple of 8')
-        return size
+    # pylint: disable=protected-access
+    cls.ATTRIBUTE_NAMES = tuple(cls._LAYOUT.keys())
+    cls._ATTR_IDX_DICT = {name: idx for name, (idx, _) in cls._LAYOUT.items() if idx is not None}
+    cls._ATTR_TYPE_DICT = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
+    return cls
 
 
-class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
+class AbstractAstroPixHit(ABC):
 
     """Abstract base class for a generic AstroPix hit.
 
@@ -126,16 +105,15 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
     fields are arbitrary subsets of a multi-byte word, it seemed more natural to
     describe the hit as a sequence of fields, each one with its own length in bits.
 
-    Note this is an abstract class that cannot be instantiated. Concrete subclasses
-    must by contract:
+    Note this is an abstract class that cannot be instantiated. (Note the ``__init__()``
+    special method is abstract and needs to be overloaded, based on the assumption
+    that for concrete classes we always want to calculate derived quantities based
+    on the row ones parsed from the input binary buffer.)
+    Concrete subclasses must by contract:
 
-    * define the _LAYOUT class member, a dictionary mapping the names of the
-      fields in the underlying binary data structure to the corresponding width
-      in bits;
-    * define the _ATTRIBUTES class member, which typically contains all the keys
-      in the _LAYOUT dictionary, and, possibly, additional strings for class member
-      defined in the constructor---this is used to control the string formatting
-      and the file I/O;
+    * overload the ``_SIZE``;
+    * overload the ``_LAYOUT``;
+    * be decorated with the ``@hitclass`` decorator.
 
     Arguments
     ---------
@@ -143,9 +121,17 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
         The portion of a full AstroPix readout representing a single hit.
     """
 
-    _LAYOUT = None
-    _ATTRIBUTES = None
+    # These first two class variables must be overriden by concrete subclasses...
+    _SIZE = 0
+    _LAYOUT = {}
+    # ... while these get populated automatically once the subclass is decorated
+    # with @hitclass (and still we initialize them here to None to make the linters
+    # happy.)
+    ATTRIBUTE_NAMES = ()
+    _ATTR_IDX_DICT = {}
+    _ATTR_TYPE_DICT = {}
 
+    @abstractmethod
     def __init__(self, data: bytearray) -> None:
         """Constructor.
         """
@@ -155,10 +141,8 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
         # Build a bit pattern to extract the fields and loop over the hit fields
         # to set all the class members.
         bit_pattern = BitPattern(self._data)
-        pos = 0
-        for name, width in self._LAYOUT.items():
-            self.__setattr__(name, bit_pattern[pos:pos + width])
-            pos += width
+        for name, idx in self._ATTR_IDX_DICT.items():
+            setattr(self, name, bit_pattern[idx])
 
     @staticmethod
     def gray_to_decimal(gray: int) -> int:
@@ -177,74 +161,39 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
             decimal ^= mask  # XOR each shifted bit
         return decimal
 
-    def _format_attributes(self, attrs: tuple[str], fmts: tuple[str] = None) -> tuple[str]:
-        """Helper function to join a given set of class attributes in a properly
-        formatted string.
-
-        Arguments
-        ---------
-        attrs : tuple
-            The names of the class attributes we want to include in the representation.
-
-        fmts : tuple, optional
-            If present determines the formatting of the given attributes.
-        """
-        vals = (getattr(self, attr) for attr in attrs)
-        if fmts is None:
-            fmts = ('%s' for _ in attrs)
-        return tuple(fmt % val for val, fmt in zip(vals, fmts))
-
-    def _repr(self, attrs: tuple[str], fmts: tuple[str] = None) -> str:
-        """Helper function to provide sensible string formatting for the packets.
-
-        The basic idea is that concrete classes would use this to implement their
-        `__repr__()` and/or `__str__()` special dunder methods.
-
-        Arguments
-        ---------
-        attrs : tuple
-            The names of the class attributes we want to include in the representation.
-
-        fmts : tuple, optional
-            If present determines the formatting of the given attributes.
-        """
-        vals = self._format_attributes(attrs, fmts)
-        info = ', '.join([f'{attr}={val}' for attr, val in zip(attrs, vals)])
-        return f'{self.__class__.__name__}({info})'
-
-    def _text(self, attrs: tuple[str], fmts: tuple[str], separator: str) -> str:
-        """Helper function for text formatting.
-
-        Note the output includes a trailing endline.
-
-        Arguments
-        ---------
-        attrs : tuple
-            The names of the class attributes we want to include in the representation.
-
-        fmts : tuple,
-            Determines the formatting of the given attributes.
-
-        separator : str
-            The separator between different fields.
-        """
-        vals = self._format_attributes(attrs, fmts)
-        return f'{separator.join(vals)}\n'
-
     @classmethod
-    def text_header(cls, attrs=None, separator: str = ',') -> str:
-        """Return a proper header for a text file representing a list of hits.
-        """
-        if attrs is None:
-            attrs = cls._ATTRIBUTES
-        return separator.join(attrs)
+    def empty_table(cls, attribute_names: list[str] = None) -> astropy.table.Table:
+        """Return an astropy empty table with the proper column types for the
+        concrete hit type.
 
-    def to_csv(self, attrs=None) -> str:
-        """Return the hit representation in csv format.
+        Note this is checking that all the attribute names are valid and tries and
+        raise a useful exception if that is not the case.
+
+        Arguments
+        ---------
+        attribute_names : str
+            The name of the hit attributes.
         """
-        if attrs is None:
-            attrs = self._ATTRIBUTES
-        return self._text(attrs, fmts=None, separator=',')
+        if attribute_names is None:
+            attribute_names = cls.ATTRIBUTE_NAMES
+        for name in attribute_names:
+            if name not in cls.ATTRIBUTE_NAMES:
+                raise RuntimeError(f'Invalid attribute "{name}" for {cls.__name__}---'
+                                   f'valid attributes are {cls.ATTRIBUTE_NAMES}')
+        types = [cls._ATTR_TYPE_DICT[name] for name in attribute_names]
+        return astropy.table.Table(names=attribute_names, dtype=types)
+
+    def attribute_values(self, attribute_names: list[str] = None) -> list:
+        """Return the value of the hit attributes for a given set of attribute names.
+
+        Arguments
+        ---------
+        attribute_names : str
+            The name of the hit attributes.
+        """
+        if attribute_names is None:
+            attribute_names = self.ATTRIBUTE_NAMES
+        return [getattr(self, name) for name in attribute_names]
 
     def __eq__(self, other: 'AbstractAstroPixHit') -> bool:
         """Comparison operator---this is handy in the unit tests.
@@ -254,9 +203,11 @@ class AbstractAstroPixHit(metaclass=AstroPixHitMeta):
     def __str__(self) -> str:
         """String formatting.
         """
-        return self._repr(self._ATTRIBUTES)
+        return f'{self.__class__.__name__}'\
+               f"({', '.join(f'{key} = {value}' for key, value in self.__dict__.items())})"
 
 
+@hitclass
 class AstroPix3Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix3 hit.
@@ -266,18 +217,19 @@ class AstroPix3Hit(AbstractAstroPixHit):
         This is copied from decode.py and totally untested.
     """
 
+    _SIZE = 5
     _LAYOUT = {
-        'chip_id': 5,
-        'payload': 3,
-        'column': 1,
-        'reserved1': 1,
-        'location': 6,
-        'timestamp': 8,
-        'reserved2': 4,
-        'tot_msb': 4,
-        'tot_lsb': 8
+        'chip_id': (slice(0, 5), np.uint8),
+        'payload': (slice(5, 8), np.uint8),
+        'column': (8, np.uint8),
+        'location': (slice(10, 16), np.uint8),
+        'timestamp': (slice(16, 24), np.uint8),
+        'tot_msb': (slice(28, 32), np.uint8),
+        'tot_lsb': (slice(32, 40), np.uint8),
+        'tot_dec': (None, np.uint16),
+        'tot_us': (None, np.float32)
     }
-    _ATTRIBUTES = tuple(_LAYOUT.keys()) + ('tot', 'tot_us')
+
     CLOCK_CYCLES_PER_US = 200.
 
     def __init__(self, data: bytearray) -> None:
@@ -286,31 +238,37 @@ class AstroPix3Hit(AbstractAstroPixHit):
         # pylint: disable=no-member
         super().__init__(data)
         # Calculate the TOT in physical units.
-        self.tot = (self.tot_msb << 8) + self.tot_lsb
-        self.tot_us = self.tot / self.CLOCK_CYCLES_PER_US
+        self.tot_dec = (self.tot_msb << 8) + self.tot_lsb
+        self.tot_us = self.tot_dec / self.CLOCK_CYCLES_PER_US
 
 
+@hitclass
 class AstroPix4Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix4 hit.
     """
 
+    _SIZE = 8
     _LAYOUT = {
-        'chip_id': 5,
-        'payload': 3,
-        'row': 5,
-        'column': 5,
-        'ts_neg1': 1,
-        'ts_coarse1': 14,
-        'ts_fine1': 3,
-        'ts_tdc1': 5,
-        'ts_neg2': 1,
-        'ts_coarse2': 14,
-        'ts_fine2': 3,
-        'ts_tdc2': 5
+        'chip_id': (slice(0, 5), np.uint8),
+        'payload': (slice(5, 8), np.uint8),
+        'row': (slice(8, 13), np.uint8),
+        'column': (slice(13, 18), np.uint8),
+        'ts_neg1': (18, np.uint8),
+        'ts_coarse1': (slice(19, 33), np.uint16),
+        'ts_fine1': (slice(33, 36), np.uint8),
+        'ts_tdc1': (slice(36, 41), np.uint8),
+        'ts_neg2': (41, np.uint8),
+        'ts_coarse2': (slice(42, 56), np.uint16),
+        'ts_fine2': (slice(56, 59), np.uint8),
+        'ts_tdc2': (slice(59, 64), np.uint8),
+        'ts_dec1': (None, np.uint32),
+        'ts_dec2': (None, np.uint32),
+        'tot_us': (None, np.float64),
+        'readout_id': (None, np.uint32),
+        'timestamp': (None, np.uint64)
     }
-    _ATTRIBUTES = tuple(_LAYOUT.keys()) + \
-        ('ts_dec1', 'ts_dec2', 'tot_us', 'readout_id', 'timestamp')
+
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 

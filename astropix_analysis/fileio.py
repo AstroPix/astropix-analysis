@@ -23,6 +23,8 @@ import json
 import struct
 import typing
 
+import astropy.table
+
 from astropix_analysis import logger
 from astropix_analysis.fmt import AbstractAstroPixReadout
 
@@ -63,6 +65,22 @@ class FileHeader:
         """
         self._content = content
 
+    def serialize(self) -> str:
+        """Serialize the header into a piece of text.
+        """
+        return json.dumps(self._content)
+
+    @classmethod
+    def deserialize(cls, text: str) -> FileHeader:
+        """Deserialize a fully-fledged FileHeader object from a piece of text.
+        """
+        return cls(json.loads(text))
+
+    def __getitem__(self, item):
+        """Make the header indexable.
+        """
+        return self._content[item]
+
     def write(self, output_file: typing.BinaryIO) -> None:
         """Serialize the header structure to an output binary file.
 
@@ -71,7 +89,7 @@ class FileHeader:
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        data = json.dumps(self._content).encode(self.ENCODING)
+        data = self.serialize().encode(self.ENCODING)
         output_file.write(self.MAGIC_NUMBER.encode(self.ENCODING))
         output_file.write(struct.pack(self._HEADER_LENGTH_FMT, len(data)))
         output_file.write(data)
@@ -90,8 +108,7 @@ class FileHeader:
             raise RuntimeError(f'Invalid magic number ({magic}), expected {cls.MAGIC_NUMBER}')
         header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
         header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
-        content = json.loads(input_file.read(header_length).decode(cls.ENCODING))
-        return cls(content)
+        return cls.deserialize(input_file.read(header_length).decode(cls.ENCODING))
 
     def __eq__(self, other: 'FileHeader') -> bool:
         """Comparison operator---this is useful in the unit tests in order to make
@@ -182,15 +199,52 @@ class AstroPixBinaryFile:
             raise StopIteration
         return readout
 
+    def to_table(self, col_names: list[str] = None) -> astropy.table.Table:
+        """Convert the file to a astropy table.
+        """
+        logger.info(f'Converting {self._input_file.name} to an astropy table...')
+        table = self._readout_class.HIT_CLASS.empty_table(col_names)
+        for readout in self:
+            hits = readout.decode()
+            for hit in hits:
+                table.add_row(hit.attribute_values(col_names))
+        logger.info(f'Done, {len(table)} row(s) populated.')
+        logger.info('Adding metadata...')
+        # The comments are defined as a list of strings in the input table meta['comments']
+        # Note that astropy treats this in a special fashion and, depending on the
+        # specific settings, meta['comments'] gets written in the output file
+        # in pretty much all formats, so we try and take advantage of this not
+        # to loose the header information.
+        table.meta['comments'] = [self.header.serialize()]
+        return table
 
-def _convert_apx(input_file_path: str, readout_class: type, converter: typing.Callable,
-                 extension: str, output_file_path: str = None, header: str = None,
-                 open_mode: str = 'w', encoding: str = FileHeader.ENCODING) -> str:
-    """Generic conversion factory for AstroPixBinaryFile objects.
 
-    This is designed to open an astropix binary files, loop over the readouts and
-    hits inside, and write the data to a (properly formatted output file). This
-    method should help implementing actual converters, e.g., to cvs of HDF5 formats.
+# Output data formats that we support, leveraging the astropy.table functionality
+#
+SUPPORTED_TABLE_FORMATS = ('csv', 'ecsv', 'fits', 'hdf5')
+
+# Keyword arguments passed to the table writers in order to customize the behavior.
+# The astropy documentation is not really extensive, here, but you do get some
+# useful information from the interactive help, e.g.
+# >>> from astropy.table import Table
+# >>> Table.write.help('csv')
+# >>> Table.read.help('csv')
+#
+_CSV_COMMENT = '#'
+_EXT_NAME = 'HITS'
+_TABLE_WRITE_KWARGS = {
+    'csv': dict(comment=_CSV_COMMENT),
+    'hdf5': dict(path=_EXT_NAME)
+}
+_TABLE_READ_KWARGS = {
+    'csv': dict(comment=_CSV_COMMENT)
+}
+
+
+def apx_convert(input_file_path: str, readout_class: type, format_: str,
+                col_names: list[str] = None, output_file_path: str = None,
+                overwrite: bool = True, **kwargs):
+    """Generic binary file conversion function.
 
     Arguments
     ---------
@@ -201,69 +255,50 @@ def _convert_apx(input_file_path: str, readout_class: type, converter: typing.Ca
         The concrete AbstractAstroPixReadout subclass of the readout object written
         in the input file.
 
-    converter : callable
-        The conversion method mapping the hits in the input file to the content
-        of the output file. (Note we are calling ``converter(hit)`` in the event
-        loop, so this might either be a method of the proper hit class, or anything
-        that can operate accepting a hit object as the only argument.)
+    format_ : str
+        The output format. See https://docs.astropy.org/en/latest/io/unified_table.html
+        for a full list of all available options.
 
-    extension : str
-        Extension for the output file, including the leading ``.`` (e.g, ``.csv``).
-        This is used to determine the path to the output file when the latter is
-        not passed as an argument.
+    col_names : list of str (optional)
+        Hit attributes selected for being included in the output file. By default
+        all the attributes are included.
 
     output_file_path : str (optional)
         The full path to the output file. If this is None, the path is made by
         just changing the extension of the input file.
-
-    header : str (optional)
-        Optional header information, to be written at the beginning of the output
-        file.
-
-    open_mode : str (default 'w')
-        The open mode for the output file.
-
-    encoding : str (default FileHeader.ENCODING)
-        The encoding (when necessary) for the output file.
     """
     # pylint: disable=protected-access
-    _ext = AstroPixBinaryFile._EXTENSION
-    # Check the extension of the input file.
-    if not input_file_path.endswith(_ext):
-        raise RuntimeError(f'{input_file_path} has the wrong extension (expecting {_ext})')
+    # Check the input file extension.
+    src_ext = AstroPixBinaryFile._EXTENSION
+    if not input_file_path.endswith(src_ext):
+        raise RuntimeError(f'{input_file_path} has the wrong extension (expecting {src_ext})')
+    # Check the output format
+    if format_ not in SUPPORTED_TABLE_FORMATS:
+        raise RuntimeError(f'Unsupported tabular format {format_}. '
+                           f'Valid formats are {SUPPORTED_TABLE_FORMATS}')
+    dest_ext = f'.{format_}'
     # If we don't provide the full path to the output file, we make up one by just
     # changing the file extension.
-    if output_file_path is None and extension is not None:
-        output_file_path = input_file_path.replace(_ext, extension)
-    if not output_file_path.endswith(extension):
-        raise RuntimeError(f'{output_file_path} has the wrong extension (expecting {extension})')
+    if output_file_path is None:
+        output_file_path = input_file_path.replace(src_ext, dest_ext)
     # We are ready to go.
     logger.info(f'Converting {input_file_path} file to {output_file_path}...')
-    # Open the input and output files...
-    with AstroPixBinaryFile(readout_class).open(input_file_path) as input_file, \
-         open(output_file_path, open_mode, encoding=encoding) as output_file:
-        # If necessary, write the header.
-        if header is not None:
-            output_file.write(header)
-        # Start the event loop.
-        num_hits = 0
-        for readout in input_file:
-            for hit in readout.decode():
-                output_file.write(converter(hit))
-                num_hits += 1
-    logger.info(f'Done, {num_hits} hit(s) written')
+    with AstroPixBinaryFile(readout_class).open(input_file_path) as input_file:
+        table = input_file.to_table(col_names)
+    logger.info(f'Writing tabular data in {format_} format to {output_file_path}...')
+    kwargs = _TABLE_WRITE_KWARGS.get(format_, {})
+    table.write(output_file_path, overwrite=overwrite, **kwargs)
     return output_file_path
 
 
-def apx_to_csv(input_file_path: str, readout_class: type, output_file_path: str = None) -> str:
-    """Convert an AstroPix binary file to csv.
+def apx_load(file_path: str) -> astropy.table.Table:
+    """Load an astropy table from a given file path.
     """
-    hit_class = readout_class.HIT_CLASS
-    converter = hit_class.to_csv
-    extension = '.csv'
-    # We need to decide whether we want to include some representation of the
-    # header of the input file in the output cvs file?
-    apx_header = AstroPixBinaryFile.read_file_header(input_file_path)
-    header = f'# {apx_header}\n# {hit_class.text_header()}\n'
-    return _convert_apx(input_file_path, readout_class, converter, extension,
-                        output_file_path, header)
+    logger.info(f'Reading tabular data from {file_path}...')
+    format_ = file_path.split('.')[-1]
+    kwargs = _TABLE_READ_KWARGS.get(format_, {})
+    table = astropy.table.Table.read(file_path, **kwargs)
+    # Note we have to join the pieces because the FITS format treats things
+    # differently.
+    header = FileHeader.deserialize(''.join(table.meta['comments']))
+    return header, table

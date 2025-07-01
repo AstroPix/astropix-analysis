@@ -149,15 +149,14 @@ the readout class is not needed).
 Format conversion
 -----------------
 
-The module provides the :meth:`~astropix_analysis.fileio._convert_apx` as a function
-factory that helps the creation of concrete conversion functions to transform
-astropix binary files into different formats, more amenable to typical offline
+We leverage the ``astropy.table`` module to allow converting binary astropix files
+to several different file formats more amenable to typical offline
 analysis.
 
-The available converters are:
-
-* :meth:`~astropix_analysis.fileio.apx_to_csv`: convert to comma-separated-values.
-
+The workhorse converter is :meth:`~astropix_analysis.fileio.apx_convert`, which
+internally creates an astropy table of hits looping over the input binary file,
+and writes it to an output file in some of the formats that astropy supports
+(e.g., csv, FITS, HDF5).
 
 .. note::
 
@@ -166,12 +165,23 @@ The available converters are:
    the conversion function factory is set up so that readout objects are unpacked
    into hits, and the latter are written to the output file.
 
-.. warning::
+The function is wrapped into a command line utility, living in the ``bin`` folder,
+that can be used to trigger a conversion.
 
-   The conversion part is a little bit sketchy, yet, and is essentially limited
-   to converting Astropix4 readout to csv, but the infrastructure is there to
-   make it more general and useful.
+Conversely, the :meth:`~astropix_analysis.fileio.apx_load` function allows to
+read back the table from file. In a nutshell, the following syntax should round-trip
 
+.. code-block:: python
+
+   # Convert a binary astropix file to HDF5...
+   output_file_path = apx_convert('path/to/apx/file', AstroPix4Readout, 'hdf5')
+
+   # ... and read it back in the form of an astropy table (+ header)
+   header, table = apx_load(output_file_path)
+
+Note that we keep track of the underlying :class:`~astropix_analysis.fileio.FileHeader`
+in the process, and when we load back the data we should have access to all the
+information in the original binary file.
 
 
 Module documentation
