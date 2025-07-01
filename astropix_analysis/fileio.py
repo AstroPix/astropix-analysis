@@ -273,7 +273,7 @@ def apx_convert(input_file_path: str, readout_class: type, format_: str,
     if not input_file_path.endswith(src_ext):
         raise RuntimeError(f'{input_file_path} has the wrong extension (expecting {src_ext})')
     # Check the output format
-    if not format_ in SUPPORTED_TABLE_FORMATS:
+    if format_ not in SUPPORTED_TABLE_FORMATS:
         raise RuntimeError(f'Unsupported tabular format {format_}. '
                            f'Valid formats are {SUPPORTED_TABLE_FORMATS}')
     dest_ext = f'.{format_}'
