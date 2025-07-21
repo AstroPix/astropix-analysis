@@ -97,9 +97,9 @@ def Decode_and_Write_Line(line,stored_split_first_part,version_number,line_count
 
     
 def main(args):
-
-    start_time=datetime.now()
-    print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
+    if __name__ == "__main__":
+        start_time=datetime.now()
+        print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
 
     full_file_name=args.name
     version_number=args.chipVer
@@ -127,20 +127,23 @@ def main(args):
 
     stored_split_first_part=None
 
-    progress_bar=tqdm.tqdm(total=total_lines)
+    if __name__ == "__main__":
+        progress_bar=tqdm.tqdm(total=total_lines)
     line_counter=0
     for line in read_file:
         if line[0].isdigit(): # the first character of a data line should be a digit, filters out the first  7 lines of config settings
-            progress_bar.update(1)
+            if __name__ == "__main__":
+                progress_bar.update(1)
             Decode_and_Write_Line_Output=Decode_and_Write_Line(line,stored_split_first_part,version_number,line_counter,write_file)
             if Decode_and_Write_Line_Output is not None:
                 decoded_hits, stored_split_first_part, line_counter = Decode_and_Write_Line_Output[0], Decode_and_Write_Line_Output[1], Decode_and_Write_Line_Output[2]
 
     read_file.close()
     write_file.close()
-    finish_time=datetime.now()
-    elapsed_time=finish_time-start_time
-    print(f'Finish Time: {datetime.strftime(finish_time,"%Y-%m-%d   %H:%M:%S")} \n Time Elapsed: {elapsed_time.days} days, {elapsed_time.seconds // 3600} hours, {(elapsed_time.seconds % 3600) // 60} minutes, {elapsed_time.seconds % 60} seconds')
+    if __name__ == "__main__":
+        finish_time=datetime.now()
+        elapsed_time=finish_time-start_time
+        print(f'Finish Time: {datetime.strftime(finish_time,"%Y-%m-%d   %H:%M:%S")} \n Time Elapsed: {elapsed_time.days} days, {elapsed_time.seconds // 3600} hours, {(elapsed_time.seconds % 3600) // 60} minutes, {elapsed_time.seconds % 60} seconds')
 
 if __name__ == "__main__":
 
