@@ -338,6 +338,9 @@ class AbstractAstroPixReadout(ABC):
     # The class representing the hit type encoded in the readout, e.g., ``AstroPix4Hit``.
     HIT_CLASS = None
 
+    # A unique identifier for the readout class.
+    _UID = None
+
     # The padding byte used to pad the readout.
     PADDING_BYTE = bytes.fromhex('ff')
 
@@ -511,3 +514,14 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     """
 
     HIT_CLASS = AstroPix4Hit
+    _UID = b'\x34\x30\x30\x30'
+
+
+__READOUT_CLASSES = (AstroPix4Readout, )
+__UID_DICT = {readout_class: readout_class._UID for readout_class in __READOUT_CLASSES}
+
+
+def readout_uid(readout_class) -> bytes:
+    """Return the unique ID of a given readout class.
+    """
+    return __UID_DICT[readout_class]

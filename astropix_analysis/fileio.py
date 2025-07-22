@@ -57,12 +57,14 @@ class FileHeader:
     """
 
     MAGIC_NUMBER = '%APXDF'
-    _HEADER_LENGTH_FMT = 'I'
+    _READOUT_UID_SIZE = 4
+    _HEADER_LENGTH_FMT = '<I'
     ENCODING = 'utf-8'
 
-    def __init__(self, content: typing.Any) -> None:
+    def __init__(self, readout_uid: bytes, content: typing.Any) -> None:
         """Constructor.
         """
+        self._readout_uid = readout_uid
         self._content = content
 
     def serialize(self) -> str:
@@ -71,10 +73,10 @@ class FileHeader:
         return json.dumps(self._content)
 
     @classmethod
-    def deserialize(cls, text: str) -> FileHeader:
+    def deserialize(cls, readout_uid: bytes, text: str) -> FileHeader:
         """Deserialize a fully-fledged FileHeader object from a piece of text.
         """
-        return cls(json.loads(text))
+        return cls(readout_uid, json.loads(text))
 
     def __getitem__(self, item):
         """Make the header indexable.
@@ -91,6 +93,7 @@ class FileHeader:
         """
         data = self.serialize().encode(self.ENCODING)
         output_file.write(self.MAGIC_NUMBER.encode(self.ENCODING))
+        output_file.write(self._readout_uid)
         output_file.write(struct.pack(self._HEADER_LENGTH_FMT, len(data)))
         output_file.write(data)
 
@@ -106,20 +109,22 @@ class FileHeader:
         magic = input_file.read(len(cls.MAGIC_NUMBER)).decode(cls.ENCODING)
         if magic != cls.MAGIC_NUMBER:
             raise RuntimeError(f'Invalid magic number ({magic}), expected {cls.MAGIC_NUMBER}')
+        readout_uid = input_file.read(cls._READOUT_UID_SIZE)
         header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
         header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
-        return cls.deserialize(input_file.read(header_length).decode(cls.ENCODING))
+        text = input_file.read(header_length).decode(cls.ENCODING)
+        return cls.deserialize(readout_uid, text)
 
     def __eq__(self, other: 'FileHeader') -> bool:
         """Comparison operator---this is useful in the unit tests in order to make
         sure that the serialization/deserialization roundtrips.
         """
-        return self._content == other._content
+        return self._readout_uid == other._readout_uid and self._content == other._content
 
     def __str__(self) -> str:
         """String representation.
         """
-        return f'{self._content}'
+        return f'Header(uid={self._readout_uid}, content={self._content})'
 
 
 class AstroPixBinaryFile:
