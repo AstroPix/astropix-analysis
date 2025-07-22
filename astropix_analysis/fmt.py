@@ -514,7 +514,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     """
 
     HIT_CLASS = AstroPix4Hit
-    _UID = b'\x34\x30\x30\x30'
+    _UID = 4000
 
 
 __READOUT_CLASSES = (AstroPix4Readout, )
@@ -522,18 +522,23 @@ __UID_DICT = {readout_class: readout_class._UID for readout_class in __READOUT_C
 __CLASS_DICT = {readout_class._UID: readout_class for readout_class in __READOUT_CLASSES}
 
 
-def readout_class_to_uid(readout_class) -> bytes:
+def readout_class_to_uid(readout_class: type) -> int:
     """Return the unique ID of a given readout class.
+
+    Arguments
+    ---------
+    readout_class : type
+        The readout class.
     """
     return __UID_DICT[readout_class]
 
 
-def uid_to_readout_class(uid: bytes) -> type:
+def uid_to_readout_class(uid: int) -> type:
     """Return the readout class corresponding to a given unique ID.
 
     Arguments
     ---------
-    uid : bytes
+    uid : int
         The unique ID of the readout class.
     """
     if uid not in __CLASS_DICT:

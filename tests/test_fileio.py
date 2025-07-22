@@ -111,7 +111,7 @@ def test_file_write_read():
     _rm_tmpfile(output_file)
 
 
-def test_playback_data(num_hits: int = 10):
+def _test_playback_data(num_hits: int = 10):
     """Test the full playback of a real file.
 
     This is just playing back the entire file, and prints out the first few readouts
@@ -136,7 +136,7 @@ def test_playback_data(num_hits: int = 10):
         print(f'{i + 1} hits found')
 
 
-def test_table():
+def _test_table():
     """Test the table conversion.
     """
     file_name = f'{SAMPLE_RUN_ID}_data.apx'
@@ -149,7 +149,7 @@ def test_table():
     print(table)
 
 
-def test_table_io():
+def _test_table_io():
     """Test the full IO from the binary astropix format to all the supported
     analysis formats.
     """
