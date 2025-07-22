@@ -26,27 +26,17 @@ from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_convert
 _DESCRIPTION = """Astropix binary data file converter.
 """
 
-_READOUT_CLASS_NAMES = ('AstroPix4Readout', )
-_DEFAULT_READOUT_CLASS_NAME = 'AstroPix4Readout'
-_READOUT_CLASS_DICT = {
-    'AstroPix4Readout': AstroPix4Readout
-}
-
 
 def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
-    readout_class = _READOUT_CLASS_DICT[args.readout]
-    apx_convert(args.infile, readout_class, args.format, args.columns, args.outfile)
+    apx_convert(args.infile, args.format, args.columns, args.outfile)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=_DESCRIPTION)
     parser.add_argument('infile', type=str,
                         help='path to the input file')
-    parser.add_argument('--readout', type=str, choices=_READOUT_CLASS_NAMES,
-                        default=_DEFAULT_READOUT_CLASS_NAME,
-                        help='the name of the readout class stored in the file')
     parser.add_argument('--format', type=str, choices=SUPPORTED_TABLE_FORMATS,
                         required=True, help='output data format')
     parser.add_argument('--columns', nargs='+', type=str, default=None,

@@ -26,7 +26,7 @@ import typing
 import astropy.table
 
 from astropix_analysis import logger
-from astropix_analysis.fmt import AbstractAstroPixReadout
+from astropix_analysis.fmt import AbstractAstroPixReadout, uid_to_readout_class
 
 
 class FileHeader:
@@ -145,15 +145,16 @@ class AstroPixBinaryFile:
 
     _EXTENSION = '.apx'
 
-    def __init__(self, readout_class: type) -> None:
+    def __init__(self) -> None:
         """Constructor.
         """
-        if not issubclass(readout_class, AbstractAstroPixReadout):
-            raise RuntimeError(f'{readout_class.__name__} is not a subclass of '
-                               'AbstractAstroPixReadout')
-        if readout_class is AbstractAstroPixReadout:
-            raise RuntimeError('AbstractAstroPixReadout is abstract and should not be instantiated')
-        self._readout_class = readout_class
+        #if not issubclass(readout_class, AbstractAstroPixReadout):
+        #    raise RuntimeError(f'{readout_class.__name__} is not a subclass of '
+        #                       'AbstractAstroPixReadout')
+        #if readout_class is AbstractAstroPixReadout:
+        #    raise RuntimeError('AbstractAstroPixReadout is abstract and should not be instantiated')
+        #self._readout_class = readout_class
+        self._readout_class = None
         self.header = None
         self._input_file = None
 
@@ -187,6 +188,7 @@ class AstroPixBinaryFile:
         with open(file_path, 'rb') as input_file:
             self._input_file = input_file
             self.header = FileHeader.read(self._input_file)
+            self._readout_class = uid_to_readout_class(self.header._readout_uid)
             yield self
             self._input_file = None
         logger.info(f'Input file {file_path} closed.')
@@ -246,19 +248,14 @@ _TABLE_READ_KWARGS = {
 }
 
 
-def apx_convert(input_file_path: str, readout_class: type, format_: str,
-                col_names: list[str] = None, output_file_path: str = None,
-                overwrite: bool = True, **kwargs):
+def apx_convert(input_file_path: str, format_: str, col_names: list[str] = None,
+                output_file_path: str = None, overwrite: bool = True, **kwargs):
     """Generic binary file conversion function.
 
     Arguments
     ---------
     input_file_path : str
         The path to the input astropix binary file (this should have the .apx extension).
-
-    readout_class : type
-        The concrete AbstractAstroPixReadout subclass of the readout object written
-        in the input file.
 
     format_ : str
         The output format. See https://docs.astropy.org/en/latest/io/unified_table.html
@@ -288,7 +285,7 @@ def apx_convert(input_file_path: str, readout_class: type, format_: str,
         output_file_path = input_file_path.replace(src_ext, dest_ext)
     # We are ready to go.
     logger.info(f'Converting {input_file_path} file to {output_file_path}...')
-    with AstroPixBinaryFile(readout_class).open(input_file_path) as input_file:
+    with AstroPixBinaryFile().open(input_file_path) as input_file:
         table = input_file.to_table(col_names)
     logger.info(f'Writing tabular data in {format_} format to {output_file_path}...')
     kwargs = _TABLE_WRITE_KWARGS.get(format_, {})
