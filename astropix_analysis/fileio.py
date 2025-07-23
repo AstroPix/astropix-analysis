@@ -26,7 +26,7 @@ import typing
 import astropy.table
 
 from astropix_analysis import logger
-from astropix_analysis.fmt import AbstractAstroPixReadout, uid_to_readout_class
+from astropix_analysis.fmt import AbstractAstroPixReadout, uid_to_readout_class, AstroPix4Readout
 
 
 class FileHeader:
@@ -322,3 +322,30 @@ def apx_load(file_path: str) -> astropy.table.Table:
     # differently.
     header = FileHeader.deserialize(''.join(table.meta['comments']))
     return header, table
+
+
+def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
+               output_file_path: str = None, encoding: str = 'utf-8') -> str:
+    """Convert a .log (text) file to a .apx (binary) file.
+    """
+    if not input_file_path.endswith('.log'):
+        raise RuntimeError(f'{input_file_path} is not a log file')
+    if output_file_path is None:
+        output_file_path = input_file_path.replace('.log', '.apx')
+    logger.info(f'Converting input file {input_file_path} to {output_file_path}')
+    with open(input_file_path, 'r', encoding=encoding) as input_file, \
+         open(output_file_path, 'wb') as output_file:
+        header = FileHeader(AstroPix4Readout)
+        header.write(output_file)
+        is_data = False
+        for line in input_file:
+            if line.startswith('0\t'):
+                is_data = True
+            if is_data:
+                readout_id, readout_data = line.split('\t')
+                readout_id = int(readout_id)
+                readout_data = readout_data.replace('b\'', '').replace('\'\n', '')
+                readout_data = bytes.fromhex(readout_data)
+                readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
+                readout.write(output_file)
+    logger.info(f'All done, {readout_id + 1} readout(s) written to {output_file_path}')
