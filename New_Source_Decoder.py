@@ -111,8 +111,9 @@ def main(args):
 
     Characters_per_hit=2*Bytes_per_hit
 
-    total_lines=count_lines(full_file_name)
-    print(f'{full_file_name} \n Lines={total_lines}\n')
+    if __name__ == "__main__":
+        total_lines=count_lines(full_file_name)
+        print(f'{full_file_name} \n Lines={total_lines}\n')
 
     read_file=open(full_file_name,'r')
     write_file=open(full_file_name.replace('.log','.csv'),'w')
