@@ -29,18 +29,19 @@ _DESCRIPTION = """Astropix binary data file converter.
 def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
-    apx_convert(args.infile, args.format, args.columns, args.outfile)
+    for file_path in args.infiles:
+        apx_convert(file_path, args.format, args.columns)
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(description=_DESCRIPTION)
-    parser.add_argument('infile', type=str,
-                        help='path to the input file')
+    parser.add_argument('infiles', type=str, nargs='+',
+                        help='path to the input file(s)')
     parser.add_argument('--format', type=str, choices=SUPPORTED_TABLE_FORMATS,
                         required=True, help='output data format')
     parser.add_argument('--columns', nargs='+', type=str, default=None,
                         help='columns selected for the output file')
-    parser.add_argument('--outfile', type=str, default=None,
-                        help='path to the output file (optional)')
-
+    #parser.add_argument('--outfile', type=str, default=None,
+    #                    help='path to the output file (optional)')
     main(parser.parse_args())

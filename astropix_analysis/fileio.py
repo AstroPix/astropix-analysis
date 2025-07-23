@@ -338,6 +338,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
         header = FileHeader(AstroPix4Readout)
         header.write(output_file)
         is_data = False
+        num_readouts = 0
         for line in input_file:
             if line.startswith('0\t'):
                 is_data = True
@@ -348,4 +349,9 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
                 readout_data = bytes.fromhex(readout_data)
                 readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
                 readout.write(output_file)
-    logger.info(f'All done, {readout_id + 1} readout(s) written to {output_file_path}')
+                num_readouts += 1
+    if num_readouts == 0:
+        logger.warning(f'Input file appears to be empty.')
+        return output_file_path
+    logger.info(f'All done, {num_readouts} readout(s) written to {output_file_path}')
+    return output_file

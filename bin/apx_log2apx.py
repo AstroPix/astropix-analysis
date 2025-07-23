@@ -30,13 +30,14 @@ _DESCRIPTION = """Astropix log file file converter.
 def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
-    log_to_apx(args.infile)
+    for file_path in args.infiles:
+        log_to_apx(file_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=_DESCRIPTION)
-    parser.add_argument('infile', type=str,
-                        help='path to the input file')
-    parser.add_argument('--outfile', type=str, default=None,
-                        help='path to the output file (optional)')
+    parser.add_argument('infiles', type=str, nargs='+',
+                        help='path to the input file(s)')
+    #parser.add_argument('--outfile', type=str, default=None,
+    #                    help='path to the output file (optional)')
     main(parser.parse_args())
