@@ -19,7 +19,6 @@
 
 import argparse
 
-from astropix_analysis.fmt import AstroPix4Readout
 from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_convert
 
 

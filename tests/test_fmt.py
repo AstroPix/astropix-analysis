@@ -140,6 +140,6 @@ def test_abc():
 def test_uid():
     """Test the UID mechanism.
     """
-    uid = AstroPix4Readout._UID
+    uid = 4000
     assert AstroPix4Readout.uid() == uid
     assert uid_to_readout_class(uid) == AstroPix4Readout
