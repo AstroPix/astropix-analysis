@@ -33,8 +33,8 @@ class FileHeader:
 
     """Class describing a file header.
 
-    The content of the header can be literally anything that is json-serializable,
-    i.e., the only request that we make is that ``json.dumps(self._content)``
+    The content of the header is assumed to be a dict object that is json-serializable,
+    i.e., the main request that we make is that ``json.dumps(self._content)``
     is not raising an exception.
 
     The basic contract is that when the ``write()`` method is called we write
@@ -52,25 +52,39 @@ class FileHeader:
 
     Arguments
     ---------
+    readout_class : type
+        The readout class for the event data in the file.
+
     content : anything that is serializable
         The header content.
     """
 
     MAGIC_NUMBER = '%APXDF'
-    _READOUT_UID_SIZE = 4
     _HEADER_LENGTH_FMT = '<I'
+    _READOUT_UID_KEY = 'readout_uid'
     ENCODING = 'utf-8'
 
-    def __init__(self, readout_uid: int, content: dict) -> None:
+    def __init__(self, readout_class: type, content: dict = None) -> None:
         """Constructor.
+
+        Note that the `readout_uid` is mandatory, while any other additional data
+        to be included in the header is optional, and should take the form of a
+        dictionary. Internally, the two things are merged together into a single
+        dict object.
         """
-        self._content = dict(readout_uid=readout_uid)
-        self._content.update(content)
+        self._content = {self._READOUT_UID_KEY: readout_class.uid()}
+        if content is not None:
+            self._content.update(content)
 
     def readout_uid(self) -> int:
+        """Return the unique ID for the readout class of the data in the file.
         """
+        return self._content[self._READOUT_UID_KEY]
+
+    def readout_class(self) -> type:
+        """Return the actual class for the readout data in the file.
         """
-        return self._content['readout_uid']
+        return uid_to_readout_class(self.readout_uid())
 
     def serialize(self) -> str:
         """Serialize the header into a piece of text.
@@ -81,9 +95,13 @@ class FileHeader:
     def deserialize(cls, text: str) -> FileHeader:
         """Deserialize a fully-fledged FileHeader object from a piece of text.
         """
+        # This is less than trivial, as in the actual file the readout_uid is
+        # flattened into a single dict object, along with all the other data,
+        # and, in order to rebuild the header object, we need to pop out the
+        # uid and pass it to the class constructor as a distinct object.
         data = json.loads(text)
         readout_uid = data.pop('readout_uid')
-        return cls(readout_uid, data)
+        return cls(uid_to_readout_class(readout_uid), data)
 
     def __getitem__(self, item):
         """Make the header indexable.
@@ -154,14 +172,8 @@ class AstroPixBinaryFile:
     def __init__(self) -> None:
         """Constructor.
         """
-        #if not issubclass(readout_class, AbstractAstroPixReadout):
-        #    raise RuntimeError(f'{readout_class.__name__} is not a subclass of '
-        #                       'AbstractAstroPixReadout')
-        #if readout_class is AbstractAstroPixReadout:
-        #    raise RuntimeError('AbstractAstroPixReadout is abstract and should not be instantiated')
-        #self._readout_class = readout_class
-        self._readout_class = None
         self.header = None
+        self._readout_class = None
         self._input_file = None
 
     @staticmethod
@@ -194,7 +206,7 @@ class AstroPixBinaryFile:
         with open(file_path, 'rb') as input_file:
             self._input_file = input_file
             self.header = FileHeader.read(self._input_file)
-            self._readout_class = uid_to_readout_class(self.header.readout_uid())
+            self._readout_class = self.header.readout_class()
             yield self
             self._input_file = None
         logger.info(f'Input file {file_path} closed.')

@@ -25,7 +25,7 @@ import numpy as np
 from astropix_analysis import logger, ASTROPIX_ANALYSIS_TESTS_DATA
 from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, \
     apx_convert, apx_load, SUPPORTED_TABLE_FORMATS
-from astropix_analysis.fmt import AstroPix4Readout, readout_class_to_uid
+from astropix_analysis.fmt import AstroPix4Readout
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -59,8 +59,7 @@ def test_file_header():
     """
     # pylint: disable=protected-access
     # Create a dummy header.
-    uid = readout_class_to_uid(AstroPix4Readout)
-    header = FileHeader(uid, dict(version=1, content='hits'))
+    header = FileHeader(AstroPix4Readout, dict(version=1, content='hits'))
     print(header)
     # Write the header to an output file.
     kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)
@@ -84,8 +83,7 @@ def test_file_write_read():
     """
     # pylint: disable=protected-access
     # Create a dummy header.
-    uid = readout_class_to_uid(AstroPix4Readout)
-    header = FileHeader(uid, dict(version=1, content='hits'))
+    header = FileHeader(AstroPix4Readout, dict(version=1, content='hits'))
     print(header)
     # Grab our test AstroPix4 hits.
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, 0)

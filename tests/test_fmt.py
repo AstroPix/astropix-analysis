@@ -20,7 +20,7 @@
 import pytest
 
 from astropix_analysis.fmt import BitPattern, AstroPix4Readout, AbstractAstroPixReadout, \
-     AbstractAstroPixHit
+     AbstractAstroPixHit, AstroPix4Hit, uid_to_readout_class
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -122,3 +122,24 @@ def test_abc():
         class Readout3(AbstractAstroPixReadout):
             HIT_CLASS = float
     print(info.value)
+
+    # Make sure _UID is overriden.
+    with pytest.raises(TypeError) as info:
+        class Readout4(AbstractAstroPixReadout):
+            HIT_CLASS = AstroPix4Hit
+    print(info.value)
+
+    # Make sure _UID is an integer.
+    with pytest.raises(TypeError) as info:
+        class Readout5(AbstractAstroPixReadout):
+            HIT_CLASS = AstroPix4Hit
+            _UID = 'hello'
+    print(info.value)
+
+
+def test_uid():
+    """Test the UID mechanism.
+    """
+    uid = AstroPix4Readout._UID
+    assert AstroPix4Readout.uid() == uid
+    assert uid_to_readout_class(uid) == AstroPix4Readout

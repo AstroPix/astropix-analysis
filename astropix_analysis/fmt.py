@@ -376,6 +376,10 @@ class AbstractAstroPixReadout(ABC):
         Now, this might be an overkill, but we want to help the user understand
         that ``HIT_CLASS`` *must* be redefined to a concrete AbstractAstroPixHit
         subclass.
+
+        And this could be achieved at the class level definition with a decorator,
+        so that we are not going through a bunch of ifs every time we instantiate
+        an object.
         """
         super().__init_subclass__()
         if cls.HIT_CLASS is None:
@@ -384,6 +388,16 @@ class AbstractAstroPixReadout(ABC):
             raise TypeError(f'{cls.__name__}.HIT_CLASS is abstract')
         if not issubclass(cls.HIT_CLASS, AbstractAstroPixHit):
             raise TypeError(f'{cls.__name__}.HIT_CLASS is not a subclass of AbstractAstroPixHit')
+        if cls._UID is None:
+            raise TypeError(f'{cls.__name__} must override _UID')
+        if not isinstance(cls._UID, int):
+            raise TypeError(f'{cls.__name__} must be an integer ({cls._UID} is invalid)')
+
+    @classmethod
+    def uid(cls) -> int:
+        """Return the unique identifier for the readout class.
+        """
+        return cls._UID
 
     @staticmethod
     def latch_ns() -> int:
@@ -518,19 +532,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
 
 __READOUT_CLASSES = (AstroPix4Readout, )
-__UID_DICT = {readout_class: readout_class._UID for readout_class in __READOUT_CLASSES}
-__CLASS_DICT = {readout_class._UID: readout_class for readout_class in __READOUT_CLASSES}
-
-
-def readout_class_to_uid(readout_class: type) -> int:
-    """Return the unique ID of a given readout class.
-
-    Arguments
-    ---------
-    readout_class : type
-        The readout class.
-    """
-    return __UID_DICT[readout_class]
+__READOUT_CLASS_DICT = {readout_class.uid(): readout_class for readout_class in __READOUT_CLASSES}
 
 
 def uid_to_readout_class(uid: int) -> type:
@@ -541,6 +543,6 @@ def uid_to_readout_class(uid: int) -> type:
     uid : int
         The unique ID of the readout class.
     """
-    if uid not in __CLASS_DICT:
-        raise RuntimeError(f'Unknown readout class with UID {uid}')
-    return __CLASS_DICT[uid]
+    if uid not in __READOUT_CLASS_DICT:
+        raise RuntimeError(f'Unknown readout class with identifier {uid}')
+    return __READOUT_CLASS_DICT[uid]
