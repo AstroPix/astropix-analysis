@@ -502,6 +502,8 @@ class AbstractAstroPixReadout(ABC):
         # pylint: disable=not-callable, protected-access
         hits = []
         pos = 0
+
+        
         while pos < len(self._readout_data):
             # Skip the idle bytes---note we need to address the input buffer with
             # a proper slice, otherwise we get an int.
@@ -526,6 +528,7 @@ class AbstractAstroPixReadout(ABC):
             # If this is the beginning of a legitimate event, *for Astropix 4* this
             # should be of the form of `111xxxxx`, where the 5 LSBs encode the
             # chip ID.
+            # MOVE THIS OUTSIDE THE WHILE!!!!
             start_byte = self._readout_data[pos:pos + 1]
             if not self.is_valid_hit_start_byte(start_byte):
                 logger.warning(f'Invalid start byte @ position {pos} (0b{ord(start_byte):08b})')
