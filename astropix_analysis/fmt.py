@@ -503,7 +503,7 @@ class AbstractAstroPixReadout(ABC):
         hits = []
         pos = 0
 
-        
+
         while pos < len(self._readout_data):
             # Skip the idle bytes---note we need to address the input buffer with
             # a proper slice, otherwise we get an int.
@@ -543,7 +543,7 @@ class AbstractAstroPixReadout(ABC):
                     logger.info('Trying to re-assemble the hit across readouts...')
                     data = extra_bytes + orphan_bytes
                     if len(data) == self.HIT_CLASS._SIZE:
-                        logger.info(f'Total size matches---we got a hit!')
+                        logger.info('Total size matches---we got a hit!')
                         data = reverse_bit_order(data)
                         hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
                 pos += offset

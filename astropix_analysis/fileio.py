@@ -335,7 +335,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
     logger.info(f'Converting input file {input_file_path} to {output_file_path}')
     with open(input_file_path, 'r', encoding=encoding) as input_file, \
          open(output_file_path, 'wb') as output_file:
-        header = FileHeader(AstroPix4Readout)
+        header = FileHeader(readout_class)
         header.write(output_file)
         is_data = False
         num_readouts = 0
@@ -351,7 +351,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
                 readout.write(output_file)
                 num_readouts += 1
     if num_readouts == 0:
-        logger.warning(f'Input file appears to be empty.')
+        logger.warning('Input file appears to be empty.')
         return output_file_path
     logger.info(f'All done, {num_readouts} readout(s) written to {output_file_path}')
     return output_file
