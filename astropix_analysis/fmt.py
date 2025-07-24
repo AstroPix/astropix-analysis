@@ -308,6 +308,22 @@ class AstroPix4Hit(AbstractAstroPixHit):
         """
         return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
+    @staticmethod
+    def is_valid_start_byte(byte: bytes) -> bool:
+        """Return True if the byte is a valid start byte for Astropix4 hit.
+
+        This, effectively, entiles to make sure that the byte is of the form `111xxxxx`,
+        where the 5 least significant bits are the chip id.
+
+        .. warning::
+          This assume the byte is before the bit order is reverse, i.e., this operates
+          in the space of the data stream from the Nexys board. The rational for
+          this is that all the error checking happens at the readout level, before
+          the bit order is reversed and before the hit is even created.
+        """
+        return ord(byte) >> 5 == 7
+
+
 
 class AbstractAstroPixReadout(ABC):
 
@@ -466,21 +482,28 @@ class AbstractAstroPixReadout(ABC):
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, timestamp)
 
-    def is_valid_hit_start_byte(self, byte: bytes) -> bool:
-        """Return True if the byte is of the form `111xxxxx`.
-
-        Consider moving this to the AstroPix4 class.
+    @abstractmethod
+    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
+        """Placeholder for the decoding function.
         """
-        return ord(byte) >> 5 == 7
+
+    def __str__(self) -> str:
+        """String formatting.
+        """
+        return f'{self.__class__.__name__}({len(self._readout_data)} bytes, ' \
+               f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
+
+
+class AstroPix4Readout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 4 readout.
+    """
+
+    HIT_CLASS = AstroPix4Hit
+    _UID = 4000
 
     def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
-        """Generic decoding function to be used by subclasses.
-
-        .. warning::
-          This is really taylored on Astropix4 readout, and it is not entirely
-          clear to me how other chip version differ. When we finally support other
-          Astropix versions, this method will need to be refactored in the actual
-          subclasses, and should probably become abstract.
+        """Astropix4 decoding function.
 
         Here is some important details about the underlying generation of idle bytes,
         verbatim from a comment by Nicolas to the github pull request
@@ -518,7 +541,7 @@ class AbstractAstroPixReadout(ABC):
                 data = self._readout_data[pos:]
                 logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
                                f'({data}) at the end of the readout.')
-                if self.is_valid_hit_start_byte(data[0:1]):
+                if AstroPix4Hit.is_valid_start_byte(data[0:1]):
                     logger.info('Valid start byte, extra bytes set aside for next readout!')
                     self.extra_bytes = data
                 break
@@ -530,10 +553,10 @@ class AbstractAstroPixReadout(ABC):
             # chip ID.
             # MOVE THIS OUTSIDE THE WHILE!!!!
             start_byte = self._readout_data[pos:pos + 1]
-            if not self.is_valid_hit_start_byte(start_byte):
+            if not AstroPix4Hit.is_valid_start_byte(start_byte):
                 logger.warning(f'Invalid start byte @ position {pos} (0b{ord(start_byte):08b})')
                 offset = 1
-                while not self.is_valid_hit_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
+                while not AstroPix4Hit.is_valid_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
                     offset += 1
                 # Move forward until we find the next valid start byte---note we
                 # have to strip all the idle bytes we find in the process.
@@ -556,21 +579,6 @@ class AbstractAstroPixReadout(ABC):
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
         return hits
-
-    def __str__(self) -> str:
-        """String formatting.
-        """
-        return f'{self.__class__.__name__}({len(self._readout_data)} bytes, ' \
-               f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
-
-
-class AstroPix4Readout(AbstractAstroPixReadout):
-
-    """Class describing an AstroPix 4 readout.
-    """
-
-    HIT_CLASS = AstroPix4Hit
-    _UID = 4000
 
 
 __READOUT_CLASSES = (AstroPix4Readout, )
