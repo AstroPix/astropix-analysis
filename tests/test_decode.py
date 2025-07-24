@@ -16,8 +16,11 @@
 """Unit tests for the decoding routines.
 """
 
+from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout, reverse_bit_order
+
+
 # Sample readout data for testing---this is a verbatim copy of tests/data/decode/test.log
-SAMPLE_READOT_DATA = [
+SAMPLE_READOUT_DATA = [
     # Two distinct events, nothing strange
     # 1: e05042030620d701 -> [0],0,7,1,9,1408,6,1259,4,0,0,0,0,14331,14952,31.05
     # 2: e05041130620d701 -> [1],0,7,1,10,1424,6,1259,4,0,0,0,0,14084,14952,43.4
@@ -40,3 +43,59 @@ SAMPLE_READOT_DATA = [
     # the second event.
     bytes.fromhex('bcbce05042030620d701bcffffffffbce05041130620d701bcbcffffbcbcbcbcffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
 ]
+
+def _create_hit(text_data: str, hit_class: type = AstroPix4Hit):
+    """Create a fully-fledged hit object from some text data.
+    """
+    return hit_class(reverse_bit_order(bytes.fromhex(text_data)), 0, 0)
+
+
+def _sample_readout(sample_index: int) -> AstroPix4Readout:
+    """Read one of the sample readout data and turn it into an actual readout object.
+
+    Note this assigns by default a readout_id of zero and a timestamp of zero.
+    """
+    return AstroPix4Readout(SAMPLE_READOUT_DATA[sample_index], readout_id=0, timestamp=0)
+
+
+# And these are the two hits in the data stream
+HIT_1 = _create_hit('e05042030620d701')
+HIT_2 = _create_hit('e05041130620d701')
+
+
+def test_sample_0():
+    """Test the first sample readout (the one with no problems) and make sure we
+    got the hits right.
+    """
+    readout0 = _sample_readout(0)
+    assert tuple(readout0.decode()) == (HIT_1, HIT_2)
+
+
+def test_sample_1():
+    """
+    """
+    readout1 = _sample_readout(1)
+    assert tuple(readout1.decode()) == (HIT_1, HIT_2)
+
+
+def test_sample_2_3():
+    """
+    """
+    readout2 = _sample_readout(2)
+    for hit in readout2.decode():
+        print(hit)
+
+    readout3 = _sample_readout(3)
+    for hit in readout3.decode(readout2.extra_bytes):
+        print(hit)
+
+
+def _test_decode():
+    """Test the decoding on a few sample patterns.
+    """
+    for readout_id, readout_data in enumerate(SAMPLE_READOUT_DATA):
+        readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
+        print(readout)
+        hits = readout.decode()
+        for hit in hits:
+            print(hit)
