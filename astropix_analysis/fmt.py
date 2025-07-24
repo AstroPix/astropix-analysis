@@ -502,7 +502,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     HIT_CLASS = AstroPix4Hit
     _UID = 4000
 
-    def _invalid_start_byte_msg(self, start_byte: byte, position: int) -> text:
+    def _invalid_start_byte_msg(self, start_byte: bytes, position: int) -> str:
         """Generic error message for an invalid start byte.
         """
         return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
