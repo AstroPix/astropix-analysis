@@ -528,19 +528,21 @@ class AbstractAstroPixReadout(ABC):
             # chip ID.
             start_byte = self._readout_data[pos:pos + 1]
             if not self.is_valid_hit_start_byte(start_byte):
-                logger.warning(f'Starting byte for hit data @ position {pos} is 0b{ord(start_byte):08b}')
+                logger.warning(f'Invalid start byte @ position {pos} (0b{ord(start_byte):08b})')
                 offset = 1
                 while not self.is_valid_hit_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
                     offset += 1
-                orphan_bytes = self._readout_data[pos:pos + offset]
+                # Move forward until we find the next valid start byte---note we
+                # have to strip all the idle bytes we find in the process.
+                orphan_bytes = self._readout_data[pos:pos + offset].rstrip(self.IDLE_BYTE)
                 logger.warning(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
                 if extra_bytes is not None:
                     logger.info('Trying to re-assemble the hit across readouts...')
                     data = extra_bytes + orphan_bytes
-                    print(len(data))
                     if len(data) == self.HIT_CLASS._SIZE:
-                        logger.warning(f'Total size matches!')
-                    print(data)
+                        logger.info(f'Total size matches---we got a hit!')
+                        data = reverse_bit_order(data)
+                        hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
                 pos += offset
 
             data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
