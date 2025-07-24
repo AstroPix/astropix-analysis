@@ -63,39 +63,38 @@ HIT_1 = _create_hit('e05042030620d701')
 HIT_2 = _create_hit('e05041130620d701')
 
 
+print(HIT_1)
+print(HIT_2)
+
+
 def test_sample_0():
-    """Test the first sample readout (the one with no problems) and make sure we
-    got the hits right.
+    """Sample 0: just a normal readout.
     """
     readout0 = _sample_readout(0)
     assert tuple(readout0.decode()) == (HIT_1, HIT_2)
 
 
 def test_sample_1():
-    """
+    """Sample 1: no idle bytes between events.
     """
     readout1 = _sample_readout(1)
     assert tuple(readout1.decode()) == (HIT_1, HIT_2)
 
 
 def test_sample_2_3():
-    """
+    """Samples 2 and 3: one event fragmented across two different readouts.
     """
     readout2 = _sample_readout(2)
-    for hit in readout2.decode():
-        print(hit)
-
+    [hit] = readout2.decode()
+    assert hit == HIT_1
     readout3 = _sample_readout(3)
-    for hit in readout3.decode(readout2.extra_bytes):
-        print(hit)
+    hit1, hit2 = readout3.decode(readout2.extra_bytes)
+    assert (hit1, hit2) == (HIT_1, HIT_2)
 
 
-def _test_decode():
-    """Test the decoding on a few sample patterns.
+def test_sample_4():
+    """Sample 4: the first event has two bytes missing and cannot be recovered.
     """
-    for readout_id, readout_data in enumerate(SAMPLE_READOUT_DATA):
-        readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
-        print(readout)
-        hits = readout.decode()
-        for hit in hits:
-            print(hit)
+    readout4 = _sample_readout(4)
+    for hit in readout4.decode():
+        print(hit)

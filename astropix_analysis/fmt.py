@@ -546,7 +546,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         # with the leftover of the previous readout.
         start_byte = self._readout_data[pos:pos + 1]
         if not AstroPix4Hit.is_valid_start_byte(start_byte):
-            logger.warning(f'Invalid start byte @ position {pos} (0b{ord(start_byte):08b})')
+            logger.warning(f'Invalid start byte 0b{ord(start_byte):08b} @ position {pos}')
             offset = 1
             # Move forward until we find the next valid start byte.
             while not AstroPix4Hit.is_valid_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
@@ -570,10 +570,10 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
                 pos += 1
 
-            # Handle the case where the last hit is truncated in the original
-            # readout data. In this case we put the thing aside in the
-            # extra_bytes class member so that, potentially, we have the data
-            # available to be matched with the beginning of the next readout.
+            # Handle the case where the last hit is truncated in the original readout data.
+            # If the start byte is valid we put the thing aside in the extra_bytes class
+            # member so that, potentially, we have the data available to be matched
+            # with the beginning of the next readout.
             if pos + self.HIT_CLASS._SIZE >= len(self._readout_data):
                 data = self._readout_data[pos:]
                 logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
@@ -583,10 +583,18 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     self.extra_bytes = data
                 break
 
+            start_byte = self._readout_data[pos:pos + 1]
+            if not AstroPix4Hit.is_valid_start_byte(start_byte):
+                logger.error(f'Invalid start byte 0b{ord(start_byte):08b} at position {pos}')
 
-
-
+            # And this should by far the most frequent path.
             data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
+
+            for i in range(1, len(data)):
+                b = data[i:i + 1]
+                if AstroPix4Hit.is_valid_start_byte(b):
+                    print(i, b)
+
             # Reverse the bit order in the hit data.
             data = reverse_bit_order(data)
             hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
