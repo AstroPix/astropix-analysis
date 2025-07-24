@@ -521,12 +521,49 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         is due to the fact that the firmware reads a certain number of bytes which is
         not synchronized to beginning or ending of dataframes coming from the chip,
         so it might just stop reading in the middle of a frame.
+
+        .. note::
+          Note that you always need to addess single bytes in the data stream with
+          a proper slice, as opposed to an integer, i.e., `data[i:i + 1]` instead
+          of `data[i]`, because Python will return an integer, otherwise.
+
+        Arguments
+        ---------
+        extra_bytes : bytes
+            Optional extra bytes from the previous readout that might be re-assembled
+            together with the beginning of this readout.
         """
         # pylint: disable=not-callable, protected-access
         hits = []
         pos = 0
 
+        # Skip the initial idle bytes, if any.
+        while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
+            pos += 1
 
+        # Look at the first legitimate hit byte---if it is not a valid hit start
+        # byte, then we might need to piece the first few bytes of the readout
+        # with the leftover of the previous readout.
+        start_byte = self._readout_data[pos:pos + 1]
+        if not AstroPix4Hit.is_valid_start_byte(start_byte):
+            logger.warning(f'Invalid start byte @ position {pos} (0b{ord(start_byte):08b})')
+            offset = 1
+            # Move forward until we find the next valid start byte.
+            while not AstroPix4Hit.is_valid_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
+                offset += 1
+            # Note we have to strip all the idle bytes at the end, if any.
+            orphan_bytes = self._readout_data[pos:pos + offset].rstrip(self.IDLE_BYTE)
+            logger.info(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
+            if extra_bytes is not None:
+                logger.info('Trying to re-assemble the hit across readouts...')
+                data = extra_bytes + orphan_bytes
+                if len(data) == self.HIT_CLASS._SIZE:
+                    logger.info('Total size matches---we got a hit!')
+                    data = reverse_bit_order(data)
+                    hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+            pos += offset
+
+        # And now we can proceed with business as usual.
         while pos < len(self._readout_data):
             # Skip the idle bytes---note we need to address the input buffer with
             # a proper slice, otherwise we get an int.
@@ -546,30 +583,8 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     self.extra_bytes = data
                 break
 
-            # Look at the first byte in the (potential) hit data---note we need to
-            # address the buffer with a proper slice, otherwise we get an int.
-            # If this is the beginning of a legitimate event, *for Astropix 4* this
-            # should be of the form of `111xxxxx`, where the 5 LSBs encode the
-            # chip ID.
-            # MOVE THIS OUTSIDE THE WHILE!!!!
-            start_byte = self._readout_data[pos:pos + 1]
-            if not AstroPix4Hit.is_valid_start_byte(start_byte):
-                logger.warning(f'Invalid start byte @ position {pos} (0b{ord(start_byte):08b})')
-                offset = 1
-                while not AstroPix4Hit.is_valid_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
-                    offset += 1
-                # Move forward until we find the next valid start byte---note we
-                # have to strip all the idle bytes we find in the process.
-                orphan_bytes = self._readout_data[pos:pos + offset].rstrip(self.IDLE_BYTE)
-                logger.warning(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
-                if extra_bytes is not None:
-                    logger.info('Trying to re-assemble the hit across readouts...')
-                    data = extra_bytes + orphan_bytes
-                    if len(data) == self.HIT_CLASS._SIZE:
-                        logger.info('Total size matches---we got a hit!')
-                        data = reverse_bit_order(data)
-                        hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
-                pos += offset
+
+
 
             data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
             # Reverse the bit order in the hit data.
