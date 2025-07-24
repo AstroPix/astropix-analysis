@@ -502,6 +502,11 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     HIT_CLASS = AstroPix4Hit
     _UID = 4000
 
+    def _invalid_start_byte_msg(self, start_byte: byte, position: int) -> text:
+        """Generic error message for an invalid start byte.
+        """
+        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
+
     def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
         """Astropix4 decoding function.
 
@@ -546,7 +551,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         # with the leftover of the previous readout.
         start_byte = self._readout_data[pos:pos + 1]
         if not AstroPix4Hit.is_valid_start_byte(start_byte):
-            logger.warning(f'Invalid start byte 0b{ord(start_byte):08b} @ position {pos}')
+            logger.warning(self._invalid_start_byte_msg(start_byte, pos))
             offset = 1
             # Move forward until we find the next valid start byte.
             while not AstroPix4Hit.is_valid_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
@@ -583,9 +588,11 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     self.extra_bytes = data
                 break
 
+
+            # EXPERIMENTAL!!!
             start_byte = self._readout_data[pos:pos + 1]
             if not AstroPix4Hit.is_valid_start_byte(start_byte):
-                logger.error(f'Invalid start byte 0b{ord(start_byte):08b} at position {pos}')
+                logger.error(self._invalid_start_byte_msg(start_byte, pos))
 
             # And this should by far the most frequent path.
             data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
