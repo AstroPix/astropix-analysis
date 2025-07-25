@@ -695,20 +695,12 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
             # Loop over bytes 1--7 (included) in the word to see whether there is
             # any additional valid start byte in the hit.
-            #
-            # We want to revise this---it works if we restrict the legitimate start
-            # bytes to 0xe0, bit if we allow for all the possible start bytes
-            # we will fill find them in hits all the time. We need to think harder
-            # about this one.
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
                 if self.is_valid_start_byte(byte):
                     # At this point we have really two cases:
-                    # 1 - this is a legitimate hit containing a start byte in the middle
-                    #     by chance;
-                    # 2 - this is a truncated hit, and the start byte signals the beginning
-                    #     of a new hit.
-                    #
+                    # 1 - this is a legitimate hit containing a start byte by chance;
+                    # 2 - this is a truncated hit, and the start byte signals the next hit.
                     # I don't think there is any way we can get this right 100% of the
                     # times, but a sensible thing to try is to move forward by the hit size,
                     # skip all the subsequent idle bytes and see if the next thing in line
@@ -717,20 +709,16 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     forward_cursor = cursor + self.HIT_CLASS._SIZE
                     while self._readout_data[forward_cursor:forward_cursor + 1] == self.IDLE_BYTE:
                         forward_cursor += 1
-                    if forward_cursor == len(self._readout_data):
-                        # We are exactly at the end of the readout, and therefore in case 1.
-                        self._add_hit(data)
-                        return self._hits
-                    # See what we got next.
-                    byte = self._readout_data[forward_cursor:forward_cursor + 1]
-                    if not self.is_valid_start_byte(byte):
-                        # Here we are really in case 2, and there is not other thing
-                        # we can do except dropping the hit.
-                        logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
-                        logger.warning(f'Dropping incomplete hit {data[:offset]}')
-                        self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
-                        cursor = cursor + offset
-                        data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
+                    if forward_cursor < len(self._readout_data):
+                        byte = self._readout_data[forward_cursor:forward_cursor + 1]
+                        if not self.is_valid_start_byte(byte):
+                            # Here we are really in case 2, and there is not other thing
+                            # we can do except dropping the hit.
+                            logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
+                            logger.warning(f'Dropping incomplete hit {data[:offset]}')
+                            self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
+                            cursor = cursor + offset
+                            data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
             # And this should be by far the most common case.
             self._add_hit(data)
