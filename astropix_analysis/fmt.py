@@ -728,7 +728,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                         if not self.is_valid_start_byte(byte):
                             # Here we are really in case 2, and there is not other thing
                             # we can do except dropping the hit.
-                            logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
+                            logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')  # noqa: E501
                             logger.warning(f'Dropping incomplete hit {data[:offset]}')
                             self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
                             cursor = cursor + offset

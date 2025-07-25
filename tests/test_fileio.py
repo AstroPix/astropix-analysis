@@ -24,7 +24,7 @@ import numpy as np
 
 from astropix_analysis import logger, ASTROPIX_ANALYSIS_TESTS_DATA
 from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, \
-    apx_convert, apx_load, SUPPORTED_TABLE_FORMATS
+    apx_process, apx_load, SUPPORTED_TABLE_FORMATS
 from astropix_analysis.fmt import AstroPix4Readout
 
 
@@ -166,7 +166,7 @@ def test_table_io():
         with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
             output_file.close()
             args = file_path, format_, None, output_file.name
-            assert apx_convert(*args) == output_file.name
+            assert apx_process(*args) == output_file.name
         # ... read back the table...
         header, table = apx_load(output_file.name)
         print(header)
