@@ -95,7 +95,7 @@ def test_sample_2_3():
     [hit] = readout2.decode()
     assert hit == HIT_1
     readout3 = _sample_readout(3)
-    hit1, hit2 = readout3.decode(readout2.extra_bytes)
+    hit1, hit2 = readout3.decode(readout2.extra_bytes())
     assert (hit1, hit2) == (HIT_1, HIT_2)
 
 

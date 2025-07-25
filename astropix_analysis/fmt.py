@@ -371,7 +371,20 @@ class AbstractAstroPixReadout(ABC):
         self.readout_id = readout_id
 
         # Initialize all the status variable for the decoding.
-        self.extra_bytes = None
+        self._decoded = False
+        self._decode_status = None
+        self._hits = []
+        self._extra_bytes = None
+
+    def decoded(self) -> bool:
+        """Return True if the readout has been decoded.
+        """
+        return self._decoded
+
+    def extra_bytes(self) -> bytes:
+        """Return the extra bytes.
+        """
+        return self._extra_bytes
 
     def __init_subclass__(cls):
         """Overloaded method.
@@ -468,6 +481,16 @@ class AbstractAstroPixReadout(ABC):
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, timestamp)
 
+    def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
+        """Add a hit to readout.
+
+        This will be typically called during the readout decoding.
+        """
+        if reverse:
+            hit_data = reverse_bit_order(hit_data)
+        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp)
+        self._hits.append(hit)
+
     @abstractmethod
     def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
         """Placeholder for the decoding function.
@@ -509,7 +532,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
           start byte for a hit, in order to keep the decoding as simple as possible.
         """
         return byte == AstroPix4Readout.DEFAULT_START_BYTE
-        #return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
+        # return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
 
     @staticmethod
     def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
@@ -549,7 +572,12 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             together with the beginning of this readout.
         """
         # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
-        hits = []
+        # If the event has been already decoded, return the list of hits that
+        # has been previsouly calculated.
+        if self._decoded:
+            return self._hits
+
+        # The cursor indicates the position within the readout.
         cursor = 0
 
         # Skip the initial idle and padding bytes.
@@ -577,8 +605,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 data = extra_bytes + orphan_bytes
                 if len(data) == self.HIT_CLASS._SIZE:
                     logger.info('Total size matches---we got a hit!')
-                    data = reverse_bit_order(data)
-                    hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+                    self._add_hit(data)
             cursor += offset
 
         # And now we can proceed with business as usual.
@@ -592,7 +619,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
             # Check if we are at the end of the readout.
             if cursor == len(self._readout_data):
-                return hits
+                return self._hits
 
             # Handle the case where the last hit is truncated in the original readout data.
             # If the start byte is valid we put the thing aside in the extra_bytes class
@@ -604,7 +631,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                                f'({data}) at the end of the readout.')
                 if self.is_valid_start_byte(data[0:1]):
                     logger.info('Valid start byte, extra bytes set aside for next readout!')
-                    self.extra_bytes = data
+                    self._extra_bytes = data
                 break
 
             # At this point we do expect a valid start hit for the next event.
@@ -621,6 +648,12 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
             # Loop over bytes 1--7 (included) in the word to see whether there is
             # any additional valid start byte in the hit.
+            #
+            # We want to revise this---it works if we restrict the legitimate start
+            # bytes to 0xe0, bit if we allow for all the possible start bytes
+            # we will fill find them in hits all the time. We need to think harder
+            # about this one.
+            #
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
                 if self.is_valid_start_byte(byte):
@@ -641,15 +674,13 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                         forward_cursor += 1
                     if forward_cursor == len(self._readout_data):
                         # We are exactly at the end of the readout, and therefore in case 1.
-                        data = reverse_bit_order(data)
-                        hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
-                        return hits
+                        self._add_hit(data)
+                        return self._hits
                     # See what we got next.
                     byte = self._readout_data[forward_cursor:forward_cursor + 1]
                     if self.is_valid_start_byte(byte):
                         # We should be in case 1: add a hit and continue.
-                        data = reverse_bit_order(data)
-                        hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+                        self._add_hit(data)
                     else:
                         # Here we are really in case 2, and there is not other thing
                         # we can do except dropping the hit.
@@ -658,12 +689,11 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                         data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
             # And this should be by far the most common case.
-            data = reverse_bit_order(data)
-            hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+            self._add_hit(data)
             cursor += self.HIT_CLASS._SIZE
             while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
                 cursor += 1
-        return hits
+        return self._hits
 
 
 __READOUT_CLASSES = (AstroPix4Readout, )
