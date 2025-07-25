@@ -313,6 +313,20 @@ class AstroPix4Hit(AbstractAstroPixHit):
 class Decode(IntEnum):
 
     """Enum class for all the possible issue that can happen during decoding.
+
+    * ``ORPHAN_BYTES_MATCHED``: the readout has orphan bytes at the beginning that
+      were succesfully matched with the extra bytes from the previous readout;
+    * ``ORPHAN_BYTES_DROPPED``: the readout has orphan bytes at the beginning that
+      we were not able to match with the extra bytes from the previous readout;
+    * ``ORPHAN_BYTES_NOT_USED``: the readout has orphan bytes at the beginning
+      that we could not use because the previous readout had no extra bytes;
+    * ``VALID_EXTRA_BYTES``: the readout had extra bytes at the end, starting
+      with a valid start-hit byte, that could be potentially matched with the
+      beginning of the next buffer;
+    * ``INVALID_EXTRA_BYTES``: the readout had extra bytes at the end, but since
+      the first byte is not a valid start-hit byte, these cannot effectively be used;
+    * ``INCOMPLETE_DATA_DROPPED``: the readout had incomplete hit data somewhere
+      that we had to drop.
     """
 
     ORPHAN_BYTES_MATCHED = 0
