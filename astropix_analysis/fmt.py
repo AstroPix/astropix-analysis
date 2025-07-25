@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from enum import IntEnum
 import struct
 import time
 import typing
@@ -309,6 +310,56 @@ class AstroPix4Hit(AbstractAstroPixHit):
         return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
 
+class Decode(IntEnum):
+
+    """Enum class for all the possible issue that can happen during decoding.
+    """
+
+    ORPHAN_BYTES_MATCHED = 0
+    ORPHAN_BYTES_DROPPED = 1
+    ORPHAN_BYTES_NOT_USED = 2
+    VALID_EXTRA_BYTES = 3
+    INVALID_EXTRA_BYTES = 4
+    INCOMPLETE_DATA_DROPPED = 5
+
+
+class DecodingStatus:
+
+    """Small class representing the status of a readout decoding.
+    """
+
+    def __init__(self) -> None:
+        """Constructor.
+        """
+        self._status_code = 0
+
+    def __bool__(self):
+        """Evaluate the status as a bool.
+
+        This implements the simple semantics `if(status)` to check if any of the
+        error bytes is set.
+        """
+        return self._status_code > 0
+
+    def set(self, bit: Decode) -> None:
+        """Set a status bit.
+        """
+        self._status_code |= (1 << bit)
+
+    def __getitem__(self, bit: Decode) -> None:
+        """Retrieve the value of a status bit.
+        """
+        return (self._status_code >> bit) & 0x1
+
+    def __str__(self) -> str:
+        """String formatting.
+        """
+        text = f'DecodingStatus {hex(self._status_code)} ({bin(self._status_code)})'
+        for bit in Decode:
+            text = f'{text}\n{bit.name.ljust(25, ".")} {self[bit]}'
+        return text
+
+
 class AbstractAstroPixReadout(ABC):
 
     """Abstract base class for a generic AstroPix readout.
@@ -369,17 +420,21 @@ class AbstractAstroPixReadout(ABC):
         # and turn it into a bytes object to make it immutable.
         self._readout_data = bytes(readout_data.rstrip(self.PADDING_BYTE))
         self.readout_id = readout_id
-
         # Initialize all the status variable for the decoding.
         self._decoded = False
-        self._decode_status = None
-        self._hits = []
+        self._decoding_status = DecodingStatus()
         self._extra_bytes = None
+        self._hits = []
 
     def decoded(self) -> bool:
         """Return True if the readout has been decoded.
         """
         return self._decoded
+
+    def decoding_status(self) -> bool:
+        """Return True if the readout has been decoded.
+        """
+        return self._decoding_status
 
     def extra_bytes(self) -> bytes:
         """Return the extra bytes.
@@ -577,7 +632,8 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         if self._decoded:
             return self._hits
 
-        # The cursor indicates the position within the readout.
+        # Ready to start---the cursor indicates the position within the readout.
+        self._decoded = True
         cursor = 0
 
         # Skip the initial idle and padding bytes.
@@ -606,6 +662,11 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 if len(data) == self.HIT_CLASS._SIZE:
                     logger.info('Total size matches---we got a hit!')
                     self._add_hit(data)
+                    self._decoding_status.set(Decode.ORPHAN_BYTES_MATCHED)
+                else:
+                    self._decoding_status.set(Decode.ORPHAN_BYTES_DROPPED)
+            else:
+                self._decoding_status.set(Decode.ORPHAN_BYTES_NOT_USED)
             cursor += offset
 
         # And now we can proceed with business as usual.
@@ -632,6 +693,9 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 if self.is_valid_start_byte(data[0:1]):
                     logger.info('Valid start byte, extra bytes set aside for next readout!')
                     self._extra_bytes = data
+                    self._decoding_status.set(Decode.VALID_EXTRA_BYTES)
+                else:
+                    self._decoding_status.set(Decode.INVALID_EXTRA_BYTES)
                 break
 
             # At this point we do expect a valid start hit for the next event.
@@ -685,6 +749,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                         # Here we are really in case 2, and there is not other thing
                         # we can do except dropping the hit.
                         logger.warning(f'Dropping incomplete hit {data[:offset]}')
+                        self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
                         cursor = cursor + offset
                         data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
