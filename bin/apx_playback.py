@@ -36,16 +36,21 @@ def main(args: argparse.Namespace) -> None:
         header = input_file.header
         print(f'{header}\n')
         for i, readout in enumerate(input_file):
+            if i < args.start:
+                continue
             title = f'Readout {i:06d}'
             terminal_width, _ = shutil.get_terminal_size()
             pad = '-' * ((terminal_width - len(title)) // 2)
             print(f'{pad}{title}{pad}')
             print(readout.pretty_print())
             input()
+        print('End of file reached :-(')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=_DESCRIPTION)
     parser.add_argument('infile', type=str,
                         help='path to the input file')
+    parser.add_argument('--start', type=int, default=0,
+                        help='start from a given readout id')
     main(parser.parse_args())
