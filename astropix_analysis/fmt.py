@@ -541,6 +541,7 @@ class AbstractAstroPixReadout(ABC):
 
         This will be typically called during the readout decoding.
         """
+        # pylint: disable=not-callable
         if reverse:
             hit_data = reverse_bit_order(hit_data)
         hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp)
@@ -704,7 +705,6 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
                 if self.is_valid_start_byte(byte):
-                    logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
                     # At this point we have really two cases:
                     # 1 - this is a legitimate hit containing a start byte in the middle
                     #     by chance;
@@ -731,6 +731,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     else:
                         # Here we are really in case 2, and there is not other thing
                         # we can do except dropping the hit.
+                        logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
                         logger.warning(f'Dropping incomplete hit {data[:offset]}')
                         self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
                         cursor = cursor + offset
