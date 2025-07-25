@@ -18,8 +18,8 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
+import pathlib
 import struct
 import time
 import typing
@@ -154,63 +154,48 @@ class FileHeader:
 
 class AstroPixBinaryFile:
 
-    """Class describing a binary file containing packets.
-
-    .. warning::
-
-        At this point this only supports input files. Shall we consider extending
-        the interface for writing output files as well?
-
-    Arguments
-    ---------
-    readout_class : type
-        The concrete class representing the readout type encoded in the file,
-        e.g., ``AstroPix4Readout``.
+    """Class describing a .apx file.
     """
 
     _EXTENSION = '.apx'
+    _VALID_OPEN_MODES = ('rb', 'wb')
 
-    def __init__(self) -> None:
+    def __init__(self, file_path: str, mode: str = 'rb', header: FileHeader = None) -> None:
         """Constructor.
         """
-        self.header = None
-        self._readout_class = None
-        self._input_file = None
-
-    @staticmethod
-    def read_file_header(file_path: str):
-        """Convenience function to retrieve the header of a given astropix binary file.
-
-        Note this is opening and (immediately) closing the file, and can be used
-        in the situations where one is only interested into the file header.
-
-        Arguments
-        ---------
-        file_path : str
-            Path to the input astropix binary file.
-        """
-        with open(file_path, 'rb') as input_file:
-            return FileHeader.read(input_file)
-
-    @contextmanager
-    def open(self, file_path: str):
-        """Open the file.
-
-        Arguments
-        ---------
-        file_path : str
-            Path to the input astropix binary file.
-        """
+        if isinstance(file_path, pathlib.Path):
+            file_path = f'{file_path}'
         if not file_path.endswith(self._EXTENSION):
             raise RuntimeError(f'Input file {file_path} has not the {self._EXTENSION} extension')
-        logger.info(f'Opening input file {file_path}...')
-        with open(file_path, 'rb') as input_file:
-            self._input_file = input_file
-            self.header = FileHeader.read(self._input_file)
+        if mode not in self._VALID_OPEN_MODES:
+            raise ValueError(f'Invalid open mode ({mode}) for {self.__class__.__name__}')
+        if mode == 'wb' and header is None:
+            raise RuntimeError(f'Cannot open {file_path} file in write mode without a header')
+        self._file_path = file_path
+        self._mode = mode
+        self._file = None
+        self.header = header
+        self._readout_class = None
+
+    def __enter__(self):
+        """Context manager protocol implementation.
+        """
+        # pylint: disable=unspecified-encoding
+        logger.debug(f'Opening file {self._file_path}...')
+        self._file = open(self._file_path, self._mode)
+        if self._mode == 'rb':
+            self.header = FileHeader.read(self._file)
             self._readout_class = self.header.readout_class()
-            yield self
-            self._input_file = None
-        logger.info(f'Input file {file_path} closed.')
+        elif self._mode == 'wb':
+            self.header.write(self._file)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager protocol implementation.
+        """
+        if self._file:
+            logger.debug(f'Closing file {self._file_path}...')
+            self._file.close()
 
     def __iter__(self) -> 'AstroPixBinaryFile':
         """Return the iterator object (self).
@@ -220,15 +205,24 @@ class AstroPixBinaryFile:
     def __next__(self) -> AbstractAstroPixReadout:
         """Read the next readout in the file.
         """
-        readout = self._readout_class.from_file(self._input_file)
+        if self._mode != 'rb':
+            raise IOError('File not open for reading')
+        readout = self._readout_class.from_file(self._file)
         if readout is None:
             raise StopIteration
         return readout
 
+    def write(self, data):
+        """Write data to file.
+        """
+        if self._mode != 'wb':
+            raise IOError('File not open for writing')
+        return self._file.write(data)
+
     def to_table(self, col_names: list[str] = None) -> astropy.table.Table:
         """Convert the file to a astropy table.
         """
-        logger.info(f'Converting {self._input_file.name} to an astropy table...')
+        logger.info(f'Converting {self._file.name} to an astropy table...')
         table = self._readout_class.HIT_CLASS.empty_table(col_names)
         for readout in self:
             hits = readout.decode()
@@ -243,6 +237,12 @@ class AstroPixBinaryFile:
         # to loose the header information.
         table.meta['comments'] = [self.header.serialize()]
         return table
+
+
+def apx_open(file_path: str, mode: str = 'rb', header: FileHeader = None):
+    """Main interface for opening .apx files.
+    """
+    return AstroPixBinaryFile(file_path, mode, header)
 
 
 # Output data formats that we support, leveraging the astropy.table functionality
@@ -289,6 +289,8 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
         just changing the extension of the input file.
     """
     # pylint: disable=protected-access
+    if isinstance(input_file_path, pathlib.Path):
+        input_file_path = f'{input_file_path}'
     # Check the input file extension.
     src_ext = AstroPixBinaryFile._EXTENSION
     if not input_file_path.endswith(src_ext):
@@ -305,7 +307,7 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
     # We are ready to go.
     logger.info(f'Processing file {input_file_path}...')
     start_time = time.time()
-    with AstroPixBinaryFile().open(input_file_path) as input_file:
+    with apx_open(input_file_path) as input_file:
         table = input_file.to_table(col_names)
     elapsed_time = time.time() - start_time
     num_hits = len(table)
