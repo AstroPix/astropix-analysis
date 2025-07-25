@@ -308,22 +308,6 @@ class AstroPix4Hit(AbstractAstroPixHit):
         """
         return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
-    @staticmethod
-    def is_valid_start_byte(byte: bytes) -> bool:
-        """Return True if the byte is a valid start byte for Astropix4 hit.
-
-        This, effectively, entiles to make sure that the byte is of the form `111xxxxx`,
-        where the 5 least significant bits are the chip id.
-
-        .. warning::
-          This assume the byte is before the bit order is reverse, i.e., this operates
-          in the space of the data stream from the Nexys board. The rational for
-          this is that all the error checking happens at the readout level, before
-          the bit order is reversed and before the hit is even created.
-        """
-        return ord(byte) >> 5 == 7
-
-
 
 class AbstractAstroPixReadout(ABC):
 
@@ -502,6 +486,27 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     HIT_CLASS = AstroPix4Hit
     _UID = 4000
 
+    @staticmethod
+    def is_valid_start_byte(byte: bytes) -> bool:
+        """Return True if the byte is a valid start byte for Astropix4 hit.
+
+        This, effectively, entiles to make sure that the byte is of the form `111xxxxx`,
+        where the 5 least significant bits are the chip id.
+
+        .. note::
+          This assume the byte is before the bit order is reverse, i.e., this operates
+          in the space of the data stream from the Nexys board. The rational for
+          this is that all the error checking happens at the readout level, before
+          the bit order is reversed and before the hit is even created.
+
+        .. warning::
+          We have an amusing edge case, here, in that 0xff is both the padding byte
+          and a valid start byte for Astropix 4. We should probably put some thought
+          into this, but we are tentatively saying that 0xff is *not* a valid
+          start byte for a hit, in order to keep the decoding as simple as possible.
+        """
+        return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
+
     def _invalid_start_byte_msg(self, start_byte: bytes, position: int) -> str:
         """Generic error message for an invalid start byte.
         """
@@ -542,19 +547,22 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         hits = []
         cursor = 0
 
-        # Skip the initial idle bytes, if any.
-        while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+        # Skip the initial idle and padding bytes.
+        # (In principle we would only expect idle bytes, here, but it is a
+        # known fact that we occasionally get padding bytes interleaved with
+        # them, especially when operating at high rate.)
+        while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
             cursor += 1
 
         # Look at the first legitimate hit byte---if it is not a valid hit start
         # byte, then we might need to piece the first few bytes of the readout
         # with the leftover of the previous readout.
         byte = self._readout_data[cursor:cursor + 1]
-        if not AstroPix4Hit.is_valid_start_byte(byte):
+        if not self.is_valid_start_byte(byte):
             logger.warning(self._invalid_start_byte_msg(byte, cursor))
             offset = 1
             # Move forward until we find the next valid start byte.
-            while not AstroPix4Hit.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):
+            while not self.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):
                 offset += 1
             # Note we have to strip all the idle bytes at the end, if any.
             orphan_bytes = self._readout_data[cursor:cursor + offset].rstrip(self.IDLE_BYTE)
@@ -570,10 +578,16 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
         # And now we can proceed with business as usual.
         while cursor < len(self._readout_data):
-            # Skip the idle bytes---note we need to address the input buffer with
-            # a proper slice, otherwise we get an int.
-            while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+            # Skip all the idle bytes and the padding bytes that we encounter.
+            # (In principle we would only expect idle bytes, here, but it is a
+            # known fact that we occasionally get padding bytes interleaved with
+            # them, especially when operating at high rate.)
+            while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
                 cursor += 1
+
+            # Check if we are at the end of the readout.
+            if cursor == len(self._readout_data):
+                return hits
 
             # Handle the case where the last hit is truncated in the original readout data.
             # If the start byte is valid we put the thing aside in the extra_bytes class
@@ -583,18 +597,17 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 data = self._readout_data[cursor:]
                 logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
                                f'({data}) at the end of the readout.')
-                if AstroPix4Hit.is_valid_start_byte(data[0:1]):
+                if self.is_valid_start_byte(data[0:1]):
                     logger.info('Valid start byte, extra bytes set aside for next readout!')
                     self.extra_bytes = data
                 break
-
 
             # At this point we do expect a valid start hit for the next event.
             # If this is not the case, then there is more logic that we need to have.
             # (And I'll raise a RuntimeError, for the moment, but this might warrant
             # a custom exception.)
             byte = self._readout_data[cursor:cursor + 1]
-            if not AstroPix4Hit.is_valid_start_byte(byte):
+            if not self.is_valid_start_byte(byte):
                 raise RuntimeError(self._invalid_start_byte_msg(byte, cursor))
 
             # We have a tentative 8-byte word, with the correct start byte,
@@ -605,7 +618,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             # any additional valid start byte in the hit.
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
-                if AstroPix4Hit.is_valid_start_byte(byte):
+                if self.is_valid_start_byte(byte):
                     logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
                     # At this point we have really two cases:
                     # 1 - this is a legitimate hit containing a start byte in the middle
@@ -628,7 +641,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                         return hits
                     # See what we got next.
                     byte = self._readout_data[forward_cursor:forward_cursor + 1]
-                    if AstroPix4Hit.is_valid_start_byte(byte):
+                    if self.is_valid_start_byte(byte):
                         # We should be in case 1: add a hit and continue.
                         data = reverse_bit_order(data)
                         hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))

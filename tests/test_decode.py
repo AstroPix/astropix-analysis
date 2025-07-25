@@ -114,10 +114,10 @@ def test_sample_5():
     assert hit == HIT_3
 
 
-def _test_sample_6():
+def test_sample_6():
     """Sample 6:
     """
     print('Testing sample 6...')
     readout6 = _sample_readout(6)
-    for hit in readout6.decode():
-        print(hit)
+    hit1, hit2 = readout6.decode()
+    assert (hit1, hit2) == (HIT_1, HIT_2)
