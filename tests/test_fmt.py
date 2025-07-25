@@ -79,10 +79,10 @@ def test_new_decoding():
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id=0)
     print(readout)
     hits = readout.decode()
-    assert len(hits) == 2
     for hit in hits:
         print(hit)
         print(hit.attribute_values(['chip_id', 'payload', 'row', 'column']))
+    assert len(hits) == 2
     hit0, hit1 = hits[0], hits[1]
     # Compare the hit objects with the content of the csv files---note we are
     # assuming that if the TOT value in us is ok, then all the intermediate timestamp

@@ -587,8 +587,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
           into this, but we are tentatively saying that 0xff is *not* a valid
           start byte for a hit, in order to keep the decoding as simple as possible.
         """
-        return byte == AstroPix4Readout.DEFAULT_START_BYTE
-        # return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
+        return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
 
     @staticmethod
     def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
@@ -701,7 +700,6 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             # bytes to 0xe0, bit if we allow for all the possible start bytes
             # we will fill find them in hits all the time. We need to think harder
             # about this one.
-            #
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
                 if self.is_valid_start_byte(byte):
@@ -725,10 +723,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                         return self._hits
                     # See what we got next.
                     byte = self._readout_data[forward_cursor:forward_cursor + 1]
-                    if self.is_valid_start_byte(byte):
-                        # We should be in case 1: add a hit and continue.
-                        self._add_hit(data)
-                    else:
+                    if not self.is_valid_start_byte(byte):
                         # Here we are really in case 2, and there is not other thing
                         # we can do except dropping the hit.
                         logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
