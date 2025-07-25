@@ -266,7 +266,7 @@ _TABLE_READ_KWARGS = {
 }
 
 
-def apx_convert(input_file_path: str, format_: str, col_names: list[str] = None,
+def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
                 output_file_path: str = None, overwrite: bool = True, **kwargs):
     """Generic binary file conversion function.
 

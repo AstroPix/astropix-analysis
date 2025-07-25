@@ -14,15 +14,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Simple converter for astropix binary files.
+"""Processing script for astropix binary files.
 """
 
 import argparse
 
-from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_convert
+from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_process
 
 
-_DESCRIPTION = """Astropix binary data file converter.
+_DESCRIPTION = f"""Astropix binary data file processing.
+
+This allows to extract the hits in a generic binary file and save them in a
+number of formats {SUPPORTED_TABLE_FORMATS}.
 """
 
 
@@ -30,7 +33,7 @@ def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
     for file_path in args.infiles:
-        apx_convert(file_path, args.format, args.columns)
+        apx_porcess(file_path, args.format, args.columns)
 
 
 if __name__ == "__main__":
