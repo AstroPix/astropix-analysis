@@ -369,6 +369,8 @@ class AbstractAstroPixReadout(ABC):
         # and turn it into a bytes object to make it immutable.
         self._readout_data = bytes(readout_data.rstrip(self.PADDING_BYTE))
         self.readout_id = readout_id
+
+        # Initialize all the status variable for the decoding.
         self.extra_bytes = None
 
     def __init_subclass__(cls):
@@ -485,6 +487,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
     HIT_CLASS = AstroPix4Hit
     _UID = 4000
+    DEFAULT_START_BYTE = bytes.fromhex('e0')
 
     @staticmethod
     def is_valid_start_byte(byte: bytes) -> bool:
@@ -505,7 +508,8 @@ class AstroPix4Readout(AbstractAstroPixReadout):
           into this, but we are tentatively saying that 0xff is *not* a valid
           start byte for a hit, in order to keep the decoding as simple as possible.
         """
-        return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
+        return byte == AstroPix4Readout.DEFAULT_START_BYTE
+        #return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
 
     @staticmethod
     def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
