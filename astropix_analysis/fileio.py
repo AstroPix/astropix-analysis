@@ -152,6 +152,25 @@ class FileHeader:
         return f'Header({fields})'
 
 
+def _sanitize_path(file_path, extension: str = None):
+    """Sanitize a file path, i.e., convert a ``pathlib.Path`` to a string when
+    necessary.
+
+    Arguments
+    ---------
+    file_path : str or pathlib.Path
+        The input file path.
+
+    extension : str
+        The desired extension, e.g., ``.apx``
+    """
+    if isinstance(file_path, pathlib.Path):
+        file_path = str(file_path)
+    if extension is not None and not file_path.endswith(extension):
+        raise RuntimeError(f'Input file {file_path} has not the {extension} extension')
+    return file_path
+
+
 class AstroPixBinaryFile:
 
     """Class describing a .apx file.
@@ -163,10 +182,7 @@ class AstroPixBinaryFile:
     def __init__(self, file_path: str, mode: str = 'rb', header: FileHeader = None) -> None:
         """Constructor.
         """
-        if isinstance(file_path, pathlib.Path):
-            file_path = f'{file_path}'
-        if not file_path.endswith(self._EXTENSION):
-            raise RuntimeError(f'Input file {file_path} has not the {self._EXTENSION} extension')
+        file_path = _sanitize_path(file_path, self._EXTENSION)
         if mode not in self._VALID_OPEN_MODES:
             raise ValueError(f'Invalid open mode ({mode}) for {self.__class__.__name__}')
         if mode == 'wb' and header is None:
@@ -289,12 +305,7 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
         just changing the extension of the input file.
     """
     # pylint: disable=protected-access
-    if isinstance(input_file_path, pathlib.Path):
-        input_file_path = f'{input_file_path}'
-    # Check the input file extension.
-    src_ext = AstroPixBinaryFile._EXTENSION
-    if not input_file_path.endswith(src_ext):
-        raise RuntimeError(f'{input_file_path} has the wrong extension (expecting {src_ext})')
+    input_file_path = _sanitize_path(input_file_path, AstroPixBinaryFile._EXTENSION)
     # Check the output format
     if format_ not in SUPPORTED_TABLE_FORMATS:
         raise RuntimeError(f'Unsupported tabular format {format_}. '
@@ -303,7 +314,7 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
     # If we don't provide the full path to the output file, we make up one by just
     # changing the file extension.
     if output_file_path is None:
-        output_file_path = input_file_path.replace(src_ext, dest_ext)
+        output_file_path = input_file_path.replace(AstroPixBinaryFile._EXTENSION, dest_ext)
     # We are ready to go.
     logger.info(f'Processing file {input_file_path}...')
     start_time = time.time()
