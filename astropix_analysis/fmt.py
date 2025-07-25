@@ -598,23 +598,6 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:  # noqa: C901
         """Astropix4 decoding function.
 
-        Here is some important details about the underlying generation of idle bytes,
-        verbatim from a comment by Nicolas to the github pull request
-        https://github.com/AstroPix/astropix-python/pull/22
-
-        Regarding the number of IDLE bytes ("BC"), you typically see two when you start
-        reading from the chip. This happens because the chip's SPI interface is clocked
-        by the SPI master in the DAQ. The data isn't immediately available because it
-        has to be transferred from an asynchronous FIFO to a FSM and then to the SPI
-        arbiter which needs few clock cycles. While the chip is preparing the data, it
-        sends out two IDLE bytes. After these 16 spi clock cycles, data is ready and
-        the chip can start transmitting. As the data is being read, the chip uses the
-        clock cycles to fetch new data, allowing multiple data words to be transmitted
-        without IDLE bytes in between or just one. The "line break" shown by @grant-sommer
-        is due to the fact that the firmware reads a certain number of bytes which is
-        not synchronized to beginning or ending of dataframes coming from the chip,
-        so it might just stop reading in the middle of a frame.
-
         .. note::
           Note that you always need to addess single bytes in the data stream with
           a proper slice, as opposed to an integer, i.e., `data[i:i + 1]` instead
