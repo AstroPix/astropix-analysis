@@ -540,24 +540,24 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         """
         # pylint: disable=not-callable, protected-access
         hits = []
-        pos = 0
+        cursor = 0
 
         # Skip the initial idle bytes, if any.
-        while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
-            pos += 1
+        while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+            cursor += 1
 
         # Look at the first legitimate hit byte---if it is not a valid hit start
         # byte, then we might need to piece the first few bytes of the readout
         # with the leftover of the previous readout.
-        start_byte = self._readout_data[pos:pos + 1]
-        if not AstroPix4Hit.is_valid_start_byte(start_byte):
-            logger.warning(self._invalid_start_byte_msg(start_byte, pos))
+        byte = self._readout_data[cursor:cursor + 1]
+        if not AstroPix4Hit.is_valid_start_byte(byte):
+            logger.warning(self._invalid_start_byte_msg(byte, cursor))
             offset = 1
             # Move forward until we find the next valid start byte.
-            while not AstroPix4Hit.is_valid_start_byte(self._readout_data[pos + offset:pos + offset + 1]):
+            while not AstroPix4Hit.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):
                 offset += 1
             # Note we have to strip all the idle bytes at the end, if any.
-            orphan_bytes = self._readout_data[pos:pos + offset].rstrip(self.IDLE_BYTE)
+            orphan_bytes = self._readout_data[cursor:cursor + offset].rstrip(self.IDLE_BYTE)
             logger.info(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
             if extra_bytes is not None:
                 logger.info('Trying to re-assemble the hit across readouts...')
@@ -566,21 +566,21 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     logger.info('Total size matches---we got a hit!')
                     data = reverse_bit_order(data)
                     hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
-            pos += offset
+            cursor += offset
 
         # And now we can proceed with business as usual.
-        while pos < len(self._readout_data):
+        while cursor < len(self._readout_data):
             # Skip the idle bytes---note we need to address the input buffer with
             # a proper slice, otherwise we get an int.
-            while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
-                pos += 1
+            while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+                cursor += 1
 
             # Handle the case where the last hit is truncated in the original readout data.
             # If the start byte is valid we put the thing aside in the extra_bytes class
             # member so that, potentially, we have the data available to be matched
             # with the beginning of the next readout.
-            if pos + self.HIT_CLASS._SIZE >= len(self._readout_data):
-                data = self._readout_data[pos:]
+            if cursor + self.HIT_CLASS._SIZE >= len(self._readout_data):
+                data = self._readout_data[cursor:]
                 logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
                                f'({data}) at the end of the readout.')
                 if AstroPix4Hit.is_valid_start_byte(data[0:1]):
@@ -589,25 +589,62 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 break
 
 
-            # EXPERIMENTAL!!!
-            start_byte = self._readout_data[pos:pos + 1]
-            if not AstroPix4Hit.is_valid_start_byte(start_byte):
-                logger.error(self._invalid_start_byte_msg(start_byte, pos))
+            # At this point we do expect a valid start hit for the next event.
+            # If this is not the case, then there is more logic that we need to have.
+            # (And I'll raise a RuntimeError, for the moment, but this might warrant
+            # a custom exception.)
+            byte = self._readout_data[cursor:cursor + 1]
+            if not AstroPix4Hit.is_valid_start_byte(byte):
+                raise RuntimeError(self._invalid_start_byte_msg(byte, cursor))
 
-            # And this should by far the most frequent path.
-            data = self._readout_data[pos:pos + self.HIT_CLASS._SIZE]
+            # We have a tentative 8-byte word, with the correct start byte,
+            # representing a hit.
+            data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
-            for i in range(1, len(data)):
-                b = data[i:i + 1]
-                if AstroPix4Hit.is_valid_start_byte(b):
-                    print(i, b)
+            # Loop over bytes 1--7 (included) in the word to see whether there is
+            # any additional valid start byte in the hit.
+            for offset in range(1, len(data)):
+                byte = data[offset:offset + 1]
+                if AstroPix4Hit.is_valid_start_byte(byte):
+                    logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')
+                    # At this point we have really two cases:
+                    # 1 - this is a legitimate hit containing a start byte in the middle
+                    #     by chance;
+                    # 2 - this is a truncated hit, and the start byte signals the beginning
+                    #     of a new hit.
+                    #
+                    # I don't think there is any way we can get this right 100% of the
+                    # times, but a sensible thing to try is to move forward by the hit size,
+                    # skip all the subsequent idle bytes and see if the next thing in line
+                    # is a valid start byte. In that situation we are probably
+                    # dealing with case 1.
+                    forward_cursor = cursor + self.HIT_CLASS._SIZE
+                    while self._readout_data[forward_cursor:forward_cursor + 1] == self.IDLE_BYTE:
+                        forward_cursor += 1
+                    if forward_cursor == len(self._readout_data):
+                        # We are exactly at the end of the readout, and therefore in case 1.
+                        data = reverse_bit_order(data)
+                        hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+                        return hits
+                    # See what we got next.
+                    byte = self._readout_data[forward_cursor:forward_cursor + 1]
+                    if AstroPix4Hit.is_valid_start_byte(byte):
+                        # We should be in case 1: add a hit and continue.
+                        data = reverse_bit_order(data)
+                        hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
+                    else:
+                        # Here we are really in case 2, and there is not other thing
+                        # we can do except dropping the hit.
+                        logger.warning(f'Dropping incomplete hit {data[:offset]}')
+                        cursor = cursor + offset
+                        data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
-            # Reverse the bit order in the hit data.
+            # And this should be by far the most common case.
             data = reverse_bit_order(data)
             hits.append(self.HIT_CLASS(data, self.readout_id, self.timestamp))
-            pos += self.HIT_CLASS._SIZE
-            while self._readout_data[pos:pos + 1] == self.IDLE_BYTE:
-                pos += 1
+            cursor += self.HIT_CLASS._SIZE
+            while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+                cursor += 1
         return hits
 
 
