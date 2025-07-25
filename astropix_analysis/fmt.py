@@ -441,34 +441,16 @@ class AbstractAstroPixReadout(ABC):
         self._hits = []
         self._cursors = []
 
+    @abstractmethod
+    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
+        """Placeholder for the decoding function---this needs to be reimplemented
+        in derived classes.
+        """
+
     def data(self) -> bytes:
         """Return the underlyng binary data.
         """
         return self._readout_data
-
-    def hex(self) -> str:
-        """Return a string with the hexadecimal representation of the underlying
-        binary data (two hexadecimal digits per byte).
-        """
-        return self._readout_data.hex()
-
-    def pretty_hex(self):
-        """Return a pretty version of the hexadecimal representation, where the
-        hit portion of the readout are colored.
-        """
-        # pylint: disable=protected-access
-        hex_bytes = self.hex()
-        text = ''
-        for i in range(len(hex_bytes) // 2):
-            byte = hex_bytes[i * 2:i * 2 + 2]
-            if i in self._cursors:
-                text += '\033[31m'
-            elif i - 1 in self._cursors:
-                text += '\033[33m'
-            elif i - self.HIT_CLASS._SIZE in self._cursors:
-                text += '\033[0m'
-            text += f'{byte}'
-        return text
 
     def decoded(self) -> bool:
         """Return True if the readout has been decoded.
@@ -476,12 +458,13 @@ class AbstractAstroPixReadout(ABC):
         return self._decoded
 
     def decoding_status(self) -> bool:
-        """Return True if the readout has been decoded.
+        """Return the full decodin status.
         """
         return self._decoding_status
 
     def extra_bytes(self) -> bytes:
-        """Return the extra bytes.
+        """Return the extra bytes, if any, at the end of the readout (None if
+        there are no extra bytes).
         """
         return self._extra_bytes
 
@@ -592,10 +575,41 @@ class AbstractAstroPixReadout(ABC):
         self._hits.append(hit)
         self._cursors.append(cursor)
 
-    @abstractmethod
-    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
-        """Placeholder for the decoding function.
+    def hex(self) -> str:
+        """Return a string with the hexadecimal representation of the underlying
+        binary data (two hexadecimal digits per byte).
         """
+        return self._readout_data.hex()
+
+    def pretty_hex(self):
+        """Return a pretty version of the hexadecimal representation, where the
+        hit portion of the readout are colored.
+        """
+        # pylint: disable=protected-access
+        # This uses cursors, so we have to make sure the thing has been decoded.
+        if not self.decoded():
+            self.decode()
+        hex_bytes = self.hex()
+        text = ''
+        for i in range(len(hex_bytes) // 2):
+            byte = hex_bytes[i * 2:i * 2 + 2]
+            if i in self._cursors:
+                text += '\033[31m'
+            elif i - 1 in self._cursors:
+                text += '\033[33m'
+            elif i - self.HIT_CLASS._SIZE in self._cursors:
+                text += '\033[0m'
+            text += f'{byte}'
+        return text
+
+    def pretty_print(self) -> str:
+        """Full, glorious pretty print of the readout object.
+        """
+        text = f'{self}\nRaw: {self.data()}\nHex: {self.pretty_hex()}\n\n'
+        for hit in self.decode():
+            text = f'{text}{hit}\n'
+        text = f'{text}\n{self.decoding_status()}'
+        return text
 
     def __str__(self) -> str:
         """String formatting.

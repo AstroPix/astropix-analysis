@@ -36,16 +36,11 @@ def main(args: argparse.Namespace) -> None:
         header = input_file.header
         print(f'{header}\n')
         for i, readout in enumerate(input_file):
-            hits = readout.decode()
             title = f'Readout {i:06d}'
             terminal_width, _ = shutil.get_terminal_size()
             pad = '-' * ((terminal_width - len(title)) // 2)
             print(f'{pad}{title}{pad}')
-            print(f'{readout}\nRaw: {readout.data()}\nHex: {readout.hex()}')
-            print(f'     {readout.pretty_hex()}\n')
-            for hit in hits:
-                print(f'{hit}\n')
-            print(readout.decoding_status())
+            print(readout.pretty_print())
             input()
 
 
