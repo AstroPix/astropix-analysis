@@ -42,6 +42,6 @@ if __name__ == "__main__":
                         required=True, help='output data format')
     parser.add_argument('--columns', nargs='+', type=str, default=None,
                         help='columns selected for the output file')
-    #parser.add_argument('--outfile', type=str, default=None,
-    #                    help='path to the output file (optional)')
+    # parser.add_argument('--outfile', type=str, default=None,
+    #                     help='path to the output file (optional)')
     main(parser.parse_args())

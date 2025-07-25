@@ -507,12 +507,13 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         """
         return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
 
-    def _invalid_start_byte_msg(self, start_byte: bytes, position: int) -> str:
+    @staticmethod
+    def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
         """Generic error message for an invalid start byte.
         """
         return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
 
-    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
+    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:  # noqa: C901
         """Astropix4 decoding function.
 
         Here is some important details about the underlying generation of idle bytes,
@@ -543,7 +544,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             Optional extra bytes from the previous readout that might be re-assembled
             together with the beginning of this readout.
         """
-        # pylint: disable=not-callable, protected-access
+        # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
         hits = []
         cursor = 0
 
@@ -562,7 +563,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             logger.warning(self._invalid_start_byte_msg(byte, cursor))
             offset = 1
             # Move forward until we find the next valid start byte.
-            while not self.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):
+            while not self.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):  # noqa: E501
                 offset += 1
             # Note we have to strip all the idle bytes at the end, if any.
             orphan_bytes = self._readout_data[cursor:cursor + offset].rstrip(self.IDLE_BYTE)
