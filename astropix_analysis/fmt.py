@@ -335,6 +335,7 @@ class Decode(IntEnum):
     VALID_EXTRA_BYTES = 3
     INVALID_EXTRA_BYTES = 4
     INCOMPLETE_DATA_DROPPED = 5
+    FATAL_ERROR = 6
 
 
 class DecodingStatus:
@@ -746,7 +747,9 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             # a custom exception.)
             byte = self._readout_data[cursor:cursor + 1]
             if not self.is_valid_start_byte(byte):
-                raise RuntimeError(self._invalid_start_byte_msg(byte, cursor))
+                logger.error(self._invalid_start_byte_msg(byte, cursor))
+                self._decoding_status.set(Decode.FATAL_ERROR)
+                return self._hits
 
             # We have a tentative 8-byte word, with the correct start byte,
             # representing a hit.
