@@ -77,6 +77,7 @@ def test_sample_0():
     print('Testing sample 0...')
     readout0 = _sample_readout(0)
     assert tuple(readout0.decode()) == (HIT_1, HIT_2)
+    print(readout0.pretty_print())
 
 
 def test_sample_1():
@@ -85,7 +86,7 @@ def test_sample_1():
     print('Testing sample 1...')
     readout1 = _sample_readout(1)
     assert tuple(readout1.decode()) == (HIT_1, HIT_2)
-    print(readout1.decoding_status())
+    print(readout1.pretty_print())
 
 
 def test_sample_2_3():
@@ -98,8 +99,8 @@ def test_sample_2_3():
     readout3 = _sample_readout(3)
     hit1, hit2 = readout3.decode(readout2.extra_bytes())
     assert (hit1, hit2) == (HIT_1, HIT_2)
-    print(readout2.decoding_status())
-    print(readout3.decoding_status())
+    print(readout2.pretty_print())
+    print(readout3.pretty_print())
 
 
 def test_sample_4():
@@ -109,7 +110,7 @@ def test_sample_4():
     readout4 = _sample_readout(4)
     [hit] = readout4.decode()
     assert hit == HIT_2
-    print(readout4.decoding_status())
+    print(readout4.pretty_print())
 
 
 def test_sample_5():
@@ -119,7 +120,7 @@ def test_sample_5():
     readout5 = _sample_readout(5)
     [hit] = readout5.decode()
     assert hit == HIT_3
-    print(readout5.decoding_status())
+    print(readout5.pretty_print())
 
 
 def test_sample_6():
