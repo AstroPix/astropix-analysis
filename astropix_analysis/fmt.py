@@ -439,6 +439,36 @@ class AbstractAstroPixReadout(ABC):
         self._decoding_status = DecodingStatus()
         self._extra_bytes = None
         self._hits = []
+        self._cursors = []
+
+    def data(self) -> bytes:
+        """Return the underlyng binary data.
+        """
+        return self._readout_data
+
+    def hex(self) -> str:
+        """Return a string with the hexadecimal representation of the underlying
+        binary data (two hexadecimal digits per byte).
+        """
+        return self._readout_data.hex()
+
+    def pretty_hex(self):
+        """Return a pretty version of the hexadecimal representation, where the
+        hit portion of the readout are colored.
+        """
+        # pylint: disable=protected-access
+        hex_bytes = self.hex()
+        text = ''
+        for i in range(len(hex_bytes) // 2):
+            byte = hex_bytes[i * 2:i * 2 + 2]
+            if i in self._cursors:
+                text += '\033[31m'
+            elif i - 1 in self._cursors:
+                text += '\033[33m'
+            elif i - self.HIT_CLASS._SIZE in self._cursors:
+                text += '\033[0m'
+            text += f'{byte}'
+        return text
 
     def decoded(self) -> bool:
         """Return True if the readout has been decoded.
@@ -550,7 +580,7 @@ class AbstractAstroPixReadout(ABC):
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, timestamp)
 
-    def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
+    def _add_hit(self, hit_data: bytes, cursor: int, reverse: bool = True) -> None:
         """Add a hit to readout.
 
         This will be typically called during the readout decoding.
@@ -560,6 +590,7 @@ class AbstractAstroPixReadout(ABC):
             hit_data = reverse_bit_order(hit_data)
         hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp)
         self._hits.append(hit)
+        self._cursors.append(cursor)
 
     @abstractmethod
     def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
@@ -658,7 +689,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 data = extra_bytes + orphan_bytes
                 if len(data) == self.HIT_CLASS._SIZE:
                     logger.info('Total size matches---we got a hit!')
-                    self._add_hit(data)
+                    self._add_hit(data, cursor)
                     self._decoding_status.set(Decode.ORPHAN_BYTES_MATCHED)
                 else:
                     self._decoding_status.set(Decode.ORPHAN_BYTES_DROPPED)
@@ -735,7 +766,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
             # And this should be by far the most common case.
-            self._add_hit(data)
+            self._add_hit(data, cursor)
             cursor += self.HIT_CLASS._SIZE
             while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
                 cursor += 1
