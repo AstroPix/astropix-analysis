@@ -33,7 +33,7 @@ def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
     for file_path in args.infiles:
-        apx_porcess(file_path, args.format, args.columns)
+        apx_process(file_path, args.format, args.columns)
 
 
 if __name__ == "__main__":

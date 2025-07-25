@@ -21,6 +21,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 import struct
+import time
 import typing
 
 import astropy.table
@@ -302,9 +303,14 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
     if output_file_path is None:
         output_file_path = input_file_path.replace(src_ext, dest_ext)
     # We are ready to go.
-    logger.info(f'Converting {input_file_path} file to {output_file_path}...')
+    logger.info(f'Processing file {input_file_path}...')
+    start_time = time.time()
     with AstroPixBinaryFile().open(input_file_path) as input_file:
         table = input_file.to_table(col_names)
+    elapsed_time = time.time() - start_time
+    num_hits = len(table)
+    processing_rate = num_hits / elapsed_time
+    logger.debug(f'{num_hits} hits processed in {elapsed_time:.3f} s ({processing_rate:.1f} hits/s)')
     logger.info(f'Writing tabular data in {format_} format to {output_file_path}...')
     kwargs = _TABLE_WRITE_KWARGS.get(format_, {})
     table.write(output_file_path, overwrite=overwrite, **kwargs)
