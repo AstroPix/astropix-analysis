@@ -375,6 +375,90 @@ class DecodingStatus:
         return text
 
 
+class ByteType(IntEnum):
+
+    """Enum class used to keep track of the byte types within a readout.
+    """
+
+    NOT_ASSIGNED = 0
+    PADDING = 1
+    IDLE = 2
+    HIT_START = 3
+    HIT = 4
+    EXTRA = 5
+    ORPHAN = 6
+    DROPPED = 7
+
+    @classmethod
+    def _fmt(cls, byte: str, *escape_codes: int) -> str:
+        """Format a single byte using standard ANSI escape sequences for colors
+        and formatting.
+
+        Note we always append a reset escape sequence at the end---this will have
+        the terminal working a little bit harder, but we are relieved from the
+        responsibility to put the terminal back in the original state. (And this
+        will never be used in CPU-intensive contexts, anyway.)
+
+        Common color codes:
+
+        | Color   | Code |
+        | ------- | ---- |
+        | Black   | `30` |
+        | Red     | `31` |
+        | Green   | `32` |
+        | Yellow  | `33` |
+        | Blue    | `34` |
+        | Magenta | `35` |
+        | Cyan    | `36` |
+        | White   | `37` |
+        | Reset   | `0`  |
+
+        Common background color codes:
+
+        | Color   | Code |
+        | ------- | ---- |
+        | Black   | `40` |
+        | Red     | `41` |
+        | Green   | `42` |
+        | Yellow  | `43` |
+        | Blue    | `44` |
+        | Magenta | `45` |
+        | Cyan    | `46` |
+        | White   | `47` |
+
+        Common text modifiers:
+
+        | Style         | Code |
+        | ------------- | ---- |
+        | Reset         | `0`  |
+        | Bold          | `1`  |
+        | Faint         | `2`  |
+        | Italic        | `3`  |
+        | Underline     | `4`  |
+        | Blink         | `5`  |
+        | Reverse       | `7`  |
+        | Conceal       | `8`  |
+        | Strikethrough | `9`  |
+        """
+        return f'\033[{";".join([str(code) for code in escape_codes])}m{byte}\033[0m'
+
+    @classmethod
+    def format_byte(cls, byte: str, byte_type) -> str:
+        """Format a single byte according to its type.
+        """
+        if byte_type == cls.HIT_START:
+            return cls._fmt(byte, 31, 47)
+        if byte_type == cls.HIT:
+            return cls._fmt(byte, 30, 47)
+        if byte_type == cls.IDLE:
+            return cls._fmt(byte, 33)
+        if byte_type == cls.DROPPED:
+            return cls._fmt(byte, 9)
+        if byte_type in (cls.EXTRA, cls.ORPHAN):
+            return cls._fmt(byte, 35)
+        return byte
+
+
 class AbstractAstroPixReadout(ABC):
 
     """Abstract base class for a generic AstroPix readout.
@@ -439,8 +523,8 @@ class AbstractAstroPixReadout(ABC):
         self._decoded = False
         self._decoding_status = DecodingStatus()
         self._extra_bytes = None
+        self._byte_mask = np.zeros(len(self._readout_data), dtype=int)
         self._hits = []
-        self._cursors = []
 
     @abstractmethod
     def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
@@ -564,7 +648,7 @@ class AbstractAstroPixReadout(ABC):
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, timestamp)
 
-    def _add_hit(self, hit_data: bytes, cursor: int, reverse: bool = True) -> None:
+    def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
         """Add a hit to readout.
 
         This will be typically called during the readout decoding.
@@ -574,7 +658,6 @@ class AbstractAstroPixReadout(ABC):
             hit_data = reverse_bit_order(hit_data)
         hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp)
         self._hits.append(hit)
-        self._cursors.append(cursor)
 
     def hex(self) -> str:
         """Return a string with the hexadecimal representation of the underlying
@@ -587,20 +670,15 @@ class AbstractAstroPixReadout(ABC):
         hit portion of the readout are colored.
         """
         # pylint: disable=protected-access
-        # This uses cursors, so we have to make sure the thing has been decoded.
+        # This uses the underlying ``_byte_mask``, so we have to make sure the
+        # thing has been decoded.
         if not self.decoded():
             self.decode()
         hex_bytes = self.hex()
         text = ''
-        for i in range(len(hex_bytes) // 2):
+        for i, byte_type in enumerate(self._byte_mask):
             byte = hex_bytes[i * 2:i * 2 + 2]
-            if i in self._cursors:
-                text += '\033[31m'
-            elif i - 1 in self._cursors:
-                text += '\033[33m'
-            elif i - self.HIT_CLASS._SIZE in self._cursors:
-                text += '\033[0m'
-            text += f'{byte}'
+            text = f'{text}{ByteType.format_byte(byte, byte_type)}'
         return text
 
     def pretty_print(self) -> str:
@@ -684,6 +762,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         # known fact that we occasionally get padding bytes interleaved with
         # them, especially when operating at high rate.)
         while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
+            self._byte_mask[cursor] = ByteType.IDLE
             cursor += 1
 
         # Look at the first legitimate hit byte---if it is not a valid hit start
@@ -697,14 +776,19 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             while not self.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):  # noqa: E501
                 offset += 1
             # Note we have to strip all the idle bytes at the end, if any.
+            # Also note the Jedi trick here: we first set all the bytes in the
+            # portion to idle...
+            self._byte_mask[cursor:cursor + offset] = ByteType.IDLE
             orphan_bytes = self._readout_data[cursor:cursor + offset].rstrip(self.IDLE_BYTE)
+            # ... and then we override the bit mask in the actual orphan part.
+            self._byte_mask[cursor:cursor + len(orphan_bytes)] = ByteType.ORPHAN
             logger.info(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
             if extra_bytes is not None:
                 logger.info('Trying to re-assemble the hit across readouts...')
                 data = extra_bytes + orphan_bytes
                 if len(data) == self.HIT_CLASS._SIZE:
                     logger.info('Total size matches---we got a hit!')
-                    self._add_hit(data, cursor)
+                    self._add_hit(data)
                     self._decoding_status.set(Decode.ORPHAN_BYTES_MATCHED)
                 else:
                     self._decoding_status.set(Decode.ORPHAN_BYTES_DROPPED)
@@ -719,6 +803,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             # known fact that we occasionally get padding bytes interleaved with
             # them, especially when operating at high rate.)
             while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
+                self._byte_mask[cursor] = ByteType.IDLE
                 cursor += 1
 
             # Check if we are at the end of the readout.
@@ -731,9 +816,11 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             # with the beginning of the next readout.
             if cursor + self.HIT_CLASS._SIZE >= len(self._readout_data):
                 data = self._readout_data[cursor:]
+                self._byte_mask[cursor:] = ByteType.EXTRA
                 logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
                                f'({data}) at the end of the readout.')
                 if self.is_valid_start_byte(data[0:1]):
+                    self._byte_mask[cursor] = ByteType.HIT_START
                     logger.info('Valid start byte, extra bytes set aside for next readout!')
                     self._extra_bytes = data
                     self._decoding_status.set(Decode.VALID_EXTRA_BYTES)
@@ -779,13 +866,17 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                             logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')  # noqa: E501
                             logger.warning(f'Dropping incomplete hit {data[:offset]}')
                             self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
+                            self._byte_mask[cursor:cursor + offset] = ByteType.DROPPED
                             cursor = cursor + offset
                             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
             # And this should be by far the most common case.
-            self._add_hit(data, cursor)
+            self._add_hit(data)
+            self._byte_mask[cursor:cursor + 1] = ByteType.HIT_START
+            self._byte_mask[cursor + 1:cursor + self.HIT_CLASS._SIZE] = ByteType.HIT
             cursor += self.HIT_CLASS._SIZE
             while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+                self._byte_mask[cursor] = ByteType.IDLE
                 cursor += 1
         return self._hits
 
