@@ -50,7 +50,7 @@ SAMPLE_READOUT_DATA = [
 def _create_hit(text_data: str, hit_class: type = AstroPix4Hit):
     """Create a fully-fledged hit object from some text data.
     """
-    return hit_class(reverse_bit_order(bytes.fromhex(text_data)), 0, 0)
+    return hit_class(reverse_bit_order(bytes.fromhex(text_data)), 0, 0, 0)
 
 
 def _sample_readout(sample_index: int) -> AstroPix4Readout:

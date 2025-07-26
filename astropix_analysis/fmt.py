@@ -201,11 +201,22 @@ class AbstractAstroPixHit(ABC):
         """
         return self._data == other._data
 
+    def dict(self) -> dict:
+        """Return the hit content as a dict---this will be essentially identical
+        to the ``__dict__`` dunder method, except for the order of the field.
+
+        .. warning::
+          This will be slow, so do not abuse it. It is good for printing :-)
+        """
+        _dict = {key: getattr(self, key) for key in self.ATTRIBUTE_NAMES}
+        _dict['raw_data'] = self._data
+        return _dict
+
     def __str__(self) -> str:
         """String formatting.
         """
         return f'{self.__class__.__name__}'\
-               f"({', '.join(f'{key} = {value}' for key, value in self.__dict__.items())})"
+               f"({', '.join(f'{key} = {value}' for key, value in self.dict().items())})"
 
 
 @hitclass
@@ -253,6 +264,9 @@ class AstroPix4Hit(AbstractAstroPixHit):
     _LAYOUT = {
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
+        'readout_id': (None, np.uint32),
+        'timestamp': (None, np.uint64),
+        'decoding_order': (None, np.uint8),
         'row': (slice(8, 13), np.uint8),
         'column': (slice(13, 18), np.uint8),
         'ts_neg1': (18, np.uint8),
@@ -265,19 +279,19 @@ class AstroPix4Hit(AbstractAstroPixHit):
         'ts_tdc2': (slice(59, 64), np.uint8),
         'ts_dec1': (None, np.uint32),
         'ts_dec2': (None, np.uint32),
-        'tot_us': (None, np.float64),
-        'readout_id': (None, np.uint32),
-        'timestamp': (None, np.uint64)
+        'tot_us': (None, np.float64)
     }
 
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, readout_id: int, timestamp: int) -> None:
+    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+                 decoding_order: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
         super().__init__(data)
+        self.decoding_order = decoding_order
         # Calculate the values of the two timestamps in clock cycles.
         self.ts_dec1 = self._compose_ts(self.ts_coarse1, self.ts_fine1)
         self.ts_dec2 = self._compose_ts(self.ts_coarse2, self.ts_fine2)
@@ -656,7 +670,8 @@ class AbstractAstroPixReadout(ABC):
         # pylint: disable=not-callable
         if reverse:
             hit_data = reverse_bit_order(hit_data)
-        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp)
+        decoding_order = len(self._hits)
+        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp, decoding_order)
         self._hits.append(hit)
 
     def hex(self) -> str:
