@@ -30,6 +30,9 @@ from astropix_analysis import logger
 from astropix_analysis.fmt import AbstractAstroPixReadout, uid_to_readout_class, AstroPix4Readout
 
 
+_TEXT_ENCODING = 'utf-8'
+
+
 class FileHeader:
 
     """Class describing a file header.
@@ -60,10 +63,8 @@ class FileHeader:
         The header content.
     """
 
-    MAGIC_NUMBER = '%APXDF'
     _HEADER_LENGTH_FMT = '<I'
     _READOUT_UID_KEY = 'readout_uid'
-    ENCODING = 'utf-8'
 
     def __init__(self, readout_class: type, content: dict = None) -> None:
         """Constructor.
@@ -117,8 +118,7 @@ class FileHeader:
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        data = self.serialize().encode(self.ENCODING)
-        output_file.write(self.MAGIC_NUMBER.encode(self.ENCODING))
+        data = self.serialize().encode(_TEXT_ENCODING)
         output_file.write(struct.pack(self._HEADER_LENGTH_FMT, len(data)))
         output_file.write(data)
 
@@ -131,12 +131,9 @@ class FileHeader:
         input_file : BinaryIO
             A file object opened in "rb" mode.
         """
-        magic = input_file.read(len(cls.MAGIC_NUMBER)).decode(cls.ENCODING)
-        if magic != cls.MAGIC_NUMBER:
-            raise RuntimeError(f'Invalid magic number ({magic}), expected {cls.MAGIC_NUMBER}')
         header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
         header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
-        text = input_file.read(header_length).decode(cls.ENCODING)
+        text = input_file.read(header_length).decode(_TEXT_ENCODING)
         return cls.deserialize(text)
 
     def __eq__(self, other: 'FileHeader') -> bool:
@@ -176,13 +173,14 @@ class AstroPixBinaryFile:
     """Class describing a .apx file.
     """
 
-    _EXTENSION = '.apx'
+    MAGIC_NUMBER = '%APXDF'
+    EXTENSION = '.apx'
     _VALID_OPEN_MODES = ('rb', 'wb')
 
     def __init__(self, file_path: str, mode: str = 'rb', header: FileHeader = None) -> None:
         """Constructor.
         """
-        file_path = _sanitize_path(file_path, self._EXTENSION)
+        file_path = _sanitize_path(file_path, self.EXTENSION)
         if mode not in self._VALID_OPEN_MODES:
             raise ValueError(f'Invalid open mode ({mode}) for {self.__class__.__name__}')
         if mode == 'wb' and header is None:
@@ -200,9 +198,13 @@ class AstroPixBinaryFile:
         logger.debug(f'Opening file {self._file_path}...')
         self._file = open(self._file_path, self._mode)
         if self._mode == 'rb':
+            magic = self._file.read(len(self.MAGIC_NUMBER)).decode(_TEXT_ENCODING)
+            if magic != self.MAGIC_NUMBER:
+                raise RuntimeError(f'Invalid magic number ({magic}), expected {self.MAGIC_NUMBER}')
             self.header = FileHeader.read(self._file)
             self._readout_class = self.header.readout_class()
         elif self._mode == 'wb':
+            self._file.write(self.MAGIC_NUMBER.encode(_TEXT_ENCODING))
             self.header.write(self._file)
         return self
 
@@ -257,6 +259,8 @@ class AstroPixBinaryFile:
 
 def apx_open(file_path: str, mode: str = 'rb', header: FileHeader = None):
     """Main interface for opening .apx files.
+
+    Note this has the basic semantic of the plain ``open()`` Python builtin.
     """
     return AstroPixBinaryFile(file_path, mode, header)
 
@@ -305,7 +309,7 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
         just changing the extension of the input file.
     """
     # pylint: disable=protected-access
-    input_file_path = _sanitize_path(input_file_path, AstroPixBinaryFile._EXTENSION)
+    input_file_path = _sanitize_path(input_file_path, AstroPixBinaryFile.EXTENSION)
     # Check the output format
     if format_ not in SUPPORTED_TABLE_FORMATS:
         raise RuntimeError(f'Unsupported tabular format {format_}. '
@@ -314,7 +318,7 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
     # If we don't provide the full path to the output file, we make up one by just
     # changing the file extension.
     if output_file_path is None:
-        output_file_path = input_file_path.replace(AstroPixBinaryFile._EXTENSION, dest_ext)
+        output_file_path = input_file_path.replace(AstroPixBinaryFile.EXTENSION, dest_ext)
     # We are ready to go.
     logger.info(f'Processing file {input_file_path}...')
     start_time = time.time()
@@ -344,7 +348,7 @@ def apx_load(file_path: str) -> astropy.table.Table:
 
 
 def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
-               output_file_path: str = None, encoding: str = 'utf-8') -> str:
+               output_file_path: str = None, encoding: str = _TEXT_ENCODING) -> str:
     """Convert a .log (text) file to a .apx (binary) file.
     """
     if not input_file_path.endswith('.log'):

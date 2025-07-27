@@ -41,7 +41,6 @@ SAMPLE_RUN_ID = '20250723_092534'
 def test_file_write_read():
     """Try writing and reading a fully-fledged output file.
     """
-    # pylint: disable=protected-access
     # Create a dummy header.
     header = FileHeader(AstroPix4Readout, dict(creator='Santa'))
     print(header)
@@ -49,7 +48,7 @@ def test_file_write_read():
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, 0)
     hits = readout.decode()
     # Write the output file.
-    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)
+    kwargs = dict(suffix=AstroPixBinaryFile.EXTENSION, delete=False)
     with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
         file_path = output_file.name
     print(f'Writing data to {file_path}...')
