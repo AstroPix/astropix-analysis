@@ -130,4 +130,4 @@ def test_sample_6():
     readout6 = _sample_readout(6)
     hit1, hit2 = readout6.decode()
     assert (hit1, hit2) == (HIT_1, HIT_2)
-    print(readout6.decoding_status())
+    print(readout6.pretty_print())

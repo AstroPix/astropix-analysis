@@ -392,6 +392,21 @@ class DecodingStatus:
 class ByteType(IntEnum):
 
     """Enum class used to keep track of the byte types within a readout.
+
+    The main purpose of this utility class is to be able to pretty-print readout
+    raw data in order to debug the decoding process.
+
+    ``NOT_ASSIGNED``: bit not assigned (this should never happen unless the readout
+      cannot be properly decoded);
+    ``PADDING``: padding byte;
+    ``IDLE``: idle byte;
+    ``HIT_START``: byte signaling the start of a hit (e.g., ``0xe0`` for chipi_id = 0);
+    ``HIT``: the byte is part of a valid hit (but not the start byte);
+    ``EXTRA``: the byte is an extra byte at the end of the readout, and possibly
+      the initial part of a valid hit that is split across readouts;
+    ``ORPHAN``: the byte is an orphan byte at the beginning of the readout, and
+      we might be able to reassemble with the extra bytes from the previous readout;
+    ``DROPPED``: the byte could not be assigned to a valid hit and was dropped.
     """
 
     NOT_ASSIGNED = 0
