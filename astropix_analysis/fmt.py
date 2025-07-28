@@ -488,6 +488,26 @@ class ByteType(IntEnum):
         return byte
 
 
+def readoutclass(cls: type) -> type:
+    """Small decorator to support automatic generation of concrete hit classes.
+
+    Decorating concrete readout classes with this allows for some minimal checks
+    on the class definition---note this is only done one, when the class is defined
+    and not at runtime (every time a class instance is created.)
+    """
+    if cls.HIT_CLASS is None:
+        raise TypeError(f'{cls.__name__} must override HIT_CLASS')
+    if cls.HIT_CLASS is AbstractAstroPixHit:
+        raise TypeError(f'{cls.__name__}.HIT_CLASS is abstract')
+    if not issubclass(cls.HIT_CLASS, AbstractAstroPixHit):
+        raise TypeError(f'{cls.__name__}.HIT_CLASS is not a subclass of AbstractAstroPixHit')
+    if cls._UID is None:
+        raise TypeError(f'{cls.__name__} must override _UID')
+    if not isinstance(cls._UID, int):
+        raise TypeError(f'{cls.__name__} must be an integer ({cls._UID} is invalid)')
+    return cls
+
+
 class AbstractAstroPixReadout(ABC):
 
     """Abstract base class for a generic AstroPix readout.
@@ -581,29 +601,6 @@ class AbstractAstroPixReadout(ABC):
         there are no extra bytes).
         """
         return self._extra_bytes
-
-    def __init_subclass__(cls):
-        """Overloaded method.
-
-        Now, this might be an overkill, but we want to help the user understand
-        that ``HIT_CLASS`` *must* be redefined to a concrete AbstractAstroPixHit
-        subclass.
-
-        And this could be achieved at the class level definition with a decorator,
-        so that we are not going through a bunch of ifs every time we instantiate
-        an object.
-        """
-        super().__init_subclass__()
-        if cls.HIT_CLASS is None:
-            raise TypeError(f'{cls.__name__} must override HIT_CLASS')
-        if cls.HIT_CLASS is AbstractAstroPixHit:
-            raise TypeError(f'{cls.__name__}.HIT_CLASS is abstract')
-        if not issubclass(cls.HIT_CLASS, AbstractAstroPixHit):
-            raise TypeError(f'{cls.__name__}.HIT_CLASS is not a subclass of AbstractAstroPixHit')
-        if cls._UID is None:
-            raise TypeError(f'{cls.__name__} must override _UID')
-        if not isinstance(cls._UID, int):
-            raise TypeError(f'{cls.__name__} must be an integer ({cls._UID} is invalid)')
 
     @classmethod
     def uid(cls) -> int:
@@ -727,6 +724,7 @@ class AbstractAstroPixReadout(ABC):
                f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
 
 
+@readoutclass
 class AstroPix4Readout(AbstractAstroPixReadout):
 
     """Class describing an AstroPix 4 readout.
