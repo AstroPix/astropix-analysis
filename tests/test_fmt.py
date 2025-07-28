@@ -20,7 +20,7 @@
 import pytest
 
 from astropix_analysis.fmt import BitPattern, AstroPix4Readout, AbstractAstroPixReadout, \
-     AbstractAstroPixHit, AstroPix4Hit, uid_to_readout_class, Decode, DecodingStatus
+     AbstractAstroPixHit, AstroPix4Hit, uid_to_readout_class, Decoding, DecodingStatus
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -63,13 +63,13 @@ def test_decode_status():
     print(status)
     if status:
         raise ValueError
-    status.set(Decode.ORPHAN_BYTES_MATCHED)
-    assert status[Decode.ORPHAN_BYTES_MATCHED] == 1
+    status.set(Decoding.ORPHAN_BYTES_MATCHED)
+    assert status[Decoding.ORPHAN_BYTES_MATCHED] == 1
     print(status)
     if not status:
         raise ValueError
-    status.set(Decode.INCOMPLETE_DATA_DROPPED)
-    assert status[Decode.INCOMPLETE_DATA_DROPPED] == 1
+    status.set(Decoding.INCOMPLETE_DATA_DROPPED)
+    assert status[Decoding.INCOMPLETE_DATA_DROPPED] == 1
     print(status)
 
 

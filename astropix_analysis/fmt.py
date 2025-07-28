@@ -324,7 +324,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
         return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
 
-class Decode(IntEnum):
+class Decoding(IntEnum):
 
     """Enum class for all the possible issue that can happen during decoding.
 
@@ -370,12 +370,12 @@ class DecodingStatus:
         """
         return self._status_code > 0
 
-    def set(self, bit: Decode) -> None:
+    def set(self, bit: Decoding) -> None:
         """Set a status bit.
         """
         self._status_code |= (1 << bit)
 
-    def __getitem__(self, bit: Decode) -> None:
+    def __getitem__(self, bit: Decoding) -> bool:
         """Retrieve the value of a status bit.
         """
         return (self._status_code >> bit) & 0x1
@@ -384,7 +384,7 @@ class DecodingStatus:
         """String formatting.
         """
         text = f'DecodingStatus {hex(self._status_code)} ({bin(self._status_code)})'
-        for bit in Decode:
+        for bit in Decoding:
             text = f'{text}\n{bit.name.ljust(25, ".")} {self[bit]}'
         return text
 
@@ -819,11 +819,11 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 if len(data) == self.HIT_CLASS._SIZE:
                     logger.info('Total size matches---we got a hit!')
                     self._add_hit(data)
-                    self._decoding_status.set(Decode.ORPHAN_BYTES_MATCHED)
+                    self._decoding_status.set(Decoding.ORPHAN_BYTES_MATCHED)
                 else:
-                    self._decoding_status.set(Decode.ORPHAN_BYTES_DROPPED)
+                    self._decoding_status.set(Decoding.ORPHAN_BYTES_DROPPED)
             else:
-                self._decoding_status.set(Decode.ORPHAN_BYTES_NOT_USED)
+                self._decoding_status.set(Decoding.ORPHAN_BYTES_NOT_USED)
             cursor += offset
 
         # And now we can proceed with business as usual.
@@ -853,9 +853,9 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     self._byte_mask[cursor] = ByteType.HIT_START
                     logger.info('Valid start byte, extra bytes set aside for next readout!')
                     self._extra_bytes = data
-                    self._decoding_status.set(Decode.VALID_EXTRA_BYTES)
+                    self._decoding_status.set(Decoding.VALID_EXTRA_BYTES)
                 else:
-                    self._decoding_status.set(Decode.INVALID_EXTRA_BYTES)
+                    self._decoding_status.set(Decoding.INVALID_EXTRA_BYTES)
                 break
 
             # At this point we do expect a valid start hit for the next event.
@@ -865,7 +865,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             byte = self._readout_data[cursor:cursor + 1]
             if not self.is_valid_start_byte(byte):
                 logger.error(self._invalid_start_byte_msg(byte, cursor))
-                self._decoding_status.set(Decode.FATAL_ERROR)
+                self._decoding_status.set(Decoding.FATAL_ERROR)
                 return self._hits
 
             # We have a tentative 8-byte word, with the correct start byte,
@@ -895,7 +895,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                             # we can do except dropping the hit.
                             logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')  # noqa: E501
                             logger.warning(f'Dropping incomplete hit {data[:offset]}')
-                            self._decoding_status.set(Decode.INCOMPLETE_DATA_DROPPED)
+                            self._decoding_status.set(Decoding.INCOMPLETE_DATA_DROPPED)
                             self._byte_mask[cursor:cursor + offset] = ByteType.DROPPED
                             cursor = cursor + offset
                             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
