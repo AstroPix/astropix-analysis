@@ -1,0 +1,24 @@
+This folder contains small chunks of data for testing purposes.
+
+
+20250722_094253
+---------------
+Small run from a charge-injection threshold scan, with the .log file being written
+by the DAQ and the corresponding .apx file created by processing the former.
+
+
+20250723_092534
+---------------
+Similar run from a threshold scan, but this time using the new DAQ facilities to
+write the .apx file directly. (Ironically, the .log file here is a real log file.)
+All the other files contain decoded hits in various formats using the new processing
+facilities.
+
+
+decode
+------
+Contains a small .log file assembled by hand (by Grant and Andrea while in Pisa
+on July 23, 2025) to illustrate all the different ways  in which decoding can be
+difficult. The corresponding .csv file was created by Grant's decoder. A verbatim
+copy of the various problematic readout is includes in the ``test_decode.py``
+unit test. 
