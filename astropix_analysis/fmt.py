@@ -495,6 +495,7 @@ def readoutclass(cls: type) -> type:
     on the class definition---note this is only done one, when the class is defined
     and not at runtime (every time a class instance is created.)
     """
+    # pylint: disable=protected-access
     if cls.HIT_CLASS is None:
         raise TypeError(f'{cls.__name__} must override HIT_CLASS')
     if cls.HIT_CLASS is AbstractAstroPixHit:

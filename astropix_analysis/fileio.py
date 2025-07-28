@@ -149,7 +149,7 @@ class FileHeader:
         return f'Header({fields})'
 
 
-def _sanitize_path(file_path, extension: str = None):
+def sanitize_path(file_path, extension: str = None):
     """Sanitize a file path, i.e., convert a ``pathlib.Path`` to a string when
     necessary.
 
@@ -180,7 +180,7 @@ class AstroPixBinaryFile:
     def __init__(self, file_path: str, mode: str = 'rb', header: FileHeader = None) -> None:
         """Constructor.
         """
-        file_path = _sanitize_path(file_path, self.EXTENSION)
+        file_path = sanitize_path(file_path, self.EXTENSION)
         if mode not in self._VALID_OPEN_MODES:
             raise ValueError(f'Invalid open mode ({mode}) for {self.__class__.__name__}')
         if mode == 'wb' and header is None:
@@ -309,7 +309,7 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
         just changing the extension of the input file.
     """
     # pylint: disable=protected-access
-    input_file_path = _sanitize_path(input_file_path, AstroPixBinaryFile.EXTENSION)
+    input_file_path = sanitize_path(input_file_path, AstroPixBinaryFile.EXTENSION)
     # Check the output format
     if format_ not in SUPPORTED_TABLE_FORMATS:
         raise RuntimeError(f'Unsupported tabular format {format_}. '

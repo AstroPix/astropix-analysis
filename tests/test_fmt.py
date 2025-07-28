@@ -123,7 +123,6 @@ def test_abc():
         _ = AbstractAstroPixHit(None)
     print(info.value)
 
-
     # Make sure classes derived from AbstractAstroPixReadout override HIT_CLASS
     with pytest.raises(TypeError) as info:
         @readoutclass
