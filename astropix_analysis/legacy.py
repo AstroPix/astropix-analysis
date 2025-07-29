@@ -22,7 +22,6 @@ import typing
 
 from astropix_analysis import logger
 from astropix_analysis.fileio import sanitize_path
-from astropix_analysis.fmt import AbstractAstroPixReadout
 
 
 class LogFileHeader:
@@ -147,7 +146,7 @@ class AstroPixLogFile:
         """
         return self
 
-    def __next__(self) -> tuple[int, str]:
+    def __next__(self) -> typing.Tuple[int, str]:
         """Read the next readout in the file and return a a 2-element tuple
         containing the readout ID and the actual readout data in text form.
         """
