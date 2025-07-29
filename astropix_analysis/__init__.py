@@ -23,7 +23,12 @@ import sys
 from loguru import logger
 
 
-def reset_logger(level: str = 'DEBUG') -> int:
+# pylint: disable=protected-access
+LOGGING_LEVELS = tuple(level for level in logger._core.levels)
+DEFAULT_LOGGING_LEVEL = 'DEBUG'
+
+
+def reset_logger(level: str = DEFAULT_LOGGING_LEVEL) -> int:
     """Minimal configuration facility for the loguru logger.
 
     A few remarks about the loguru internals. In order to keep the API clean, the

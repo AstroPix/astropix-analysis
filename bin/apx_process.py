@@ -19,6 +19,7 @@
 
 import argparse
 
+from astropix_analysis.cli import ArgumentParser
 from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_process
 
 
@@ -38,13 +39,11 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description=_DESCRIPTION)
-    parser.add_argument('infiles', type=str, nargs='+',
-                        help='path to the input file(s)')
+    parser = ArgumentParser(description=_DESCRIPTION)
+    parser.add_infiles()
     parser.add_argument('--format', type=str, choices=SUPPORTED_TABLE_FORMATS,
-                        required=True, help='output data format')
+                        required=True,
+                        help='output data format')
     parser.add_argument('--columns', nargs='+', type=str, default=None,
                         help='columns selected for the output file')
-    # parser.add_argument('--outfile', type=str, default=None,
-    #                     help='path to the output file (optional)')
     main(parser.parse_args())

@@ -21,10 +21,11 @@ import argparse
 import shutil
 
 from astropix_analysis import logger
+from astropix_analysis.cli import ArgumentParser
 from astropix_analysis.fileio import apx_open
 
 
-_DESCRIPTION = """Astropix binary data file playback facility.
+_DESCRIPTION = """Astropix binary data file playback application.
 """
 
 
@@ -48,9 +49,7 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=_DESCRIPTION)
-    parser.add_argument('infile', type=str,
-                        help='path to the input file')
-    parser.add_argument('--start', type=int, default=0,
-                        help='start from a given readout id')
+    parser = ArgumentParser(description=_DESCRIPTION)
+    parser.add_infile()
+    parser.add_start()
     main(parser.parse_args())
