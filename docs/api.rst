@@ -20,4 +20,5 @@ List of modules
    analysis
    fileio
    fmt
+   legacy
    plt_
