@@ -21,7 +21,8 @@ from argparse import Namespace  # noqa: F401
 import typing
 
 from astropix_analysis import logger
-from astropix_analysis.fileio import sanitize_path
+from astropix_analysis.fileio import apx_open, FileHeader, sanitize_path
+from astropix_analysis.fmt import AstroPix4Readout
 
 
 class LogFileHeader:
@@ -155,4 +156,29 @@ class AstroPixLogFile:
             raise StopIteration
         readout_id, readout_data = line.strip('\n').split('\t')
         readout_id = int(readout_id)
+        readout_data = readout_data.replace('b\'', '').replace('\'', '')
         return readout_id, readout_data
+
+
+def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
+               output_file_path: str = None) -> str:
+    """Convert a .log (text) file to a .apx (binary) file.
+    """
+    input_file_path = sanitize_path(input_file_path, AstroPixLogFile.EXTENSION)
+    if output_file_path is None:
+        output_file_path = input_file_path.replace('.log', '.apx')
+    logger.info(f'Converting input file {input_file_path} to {output_file_path}')
+    header = FileHeader(readout_class)
+    with AstroPixLogFile(input_file_path) as input_file, \
+            apx_open(output_file_path, 'wb', header) as output_file:
+        num_readouts = 0
+        for readout_id, readout_data in input_file:
+            readout_data = bytes.fromhex(readout_data)
+            readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
+            readout.write(output_file)
+            num_readouts += 1
+    if num_readouts == 0:
+        logger.warning('Input file appears to be empty.')
+        return output_file_path
+    logger.info(f'All done, {num_readouts} readout(s) written to {output_file_path}')
+    return output_file

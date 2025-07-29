@@ -27,7 +27,7 @@ import typing
 import astropy.table
 
 from astropix_analysis import logger
-from astropix_analysis.fmt import AbstractAstroPixReadout, uid_to_readout_class, AstroPix4Readout
+from astropix_analysis.fmt import AbstractAstroPixReadout, uid_to_readout_class
 
 
 _TEXT_ENCODING = 'utf-8'
@@ -345,36 +345,3 @@ def apx_load(file_path: str) -> astropy.table.Table:
     # differently.
     header = FileHeader.deserialize(''.join(table.meta['comments']))
     return header, table
-
-
-def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
-               output_file_path: str = None, encoding: str = _TEXT_ENCODING) -> str:
-    """Convert a .log (text) file to a .apx (binary) file.
-    """
-    if not input_file_path.endswith('.log'):
-        raise RuntimeError(f'{input_file_path} is not a log file')
-    if output_file_path is None:
-        output_file_path = input_file_path.replace('.log', '.apx')
-    logger.info(f'Converting input file {input_file_path} to {output_file_path}')
-    with open(input_file_path, 'r', encoding=encoding) as input_file, \
-         open(output_file_path, 'wb') as output_file:
-        header = FileHeader(readout_class)
-        header.write(output_file)
-        is_data = False
-        num_readouts = 0
-        for line in input_file:
-            if line.startswith('0\t'):
-                is_data = True
-            if is_data:
-                readout_id, readout_data = line.split('\t')
-                readout_id = int(readout_id)
-                readout_data = readout_data.replace('b\'', '').replace('\'\n', '')
-                readout_data = bytes.fromhex(readout_data)
-                readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
-                readout.write(output_file)
-                num_readouts += 1
-    if num_readouts == 0:
-        logger.warning('Input file appears to be empty.')
-        return output_file_path
-    logger.info(f'All done, {num_readouts} readout(s) written to {output_file_path}')
-    return output_file

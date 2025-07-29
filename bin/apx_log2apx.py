@@ -19,7 +19,7 @@
 
 import argparse
 
-from astropix_analysis.fileio import log_to_apx
+from astropix_analysis.legacy import log_to_apx
 
 
 _DESCRIPTION = """Astropix log file file converter.
