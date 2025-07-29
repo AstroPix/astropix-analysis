@@ -16,9 +16,97 @@
 """Facilities for legacy .log data files.
 """
 
+# pylint: disable=unused-import
+from argparse import Namespace  # noqa: F401
+import typing
+
 from astropix_analysis import logger
 from astropix_analysis.fileio import sanitize_path
 from astropix_analysis.fmt import AbstractAstroPixReadout
+
+
+class LogFileHeader:
+
+    """Convenience class to interact with the metadata at the top of a log file.
+
+    The class constructor will read just enough lines from the input file to populate
+    the header content, and leave the file itself at the first line containing a
+    readout. If an actual readout is instead encountered in the process (e.g., when
+    the header information is missing, or incomplete), a ``RuntimeError`` is raised.
+
+    Arguments
+    ---------
+    input_file : TextIO
+        The input (text) file object, open in read mode.
+    """
+
+    def __init__(self, input_file: typing.TextIO) -> None:
+        """Constructor.
+        """
+        self.voltage_card = self._parse_line(input_file)
+        self.digital = self._parse_line(input_file)
+        self.bias_block = self._parse_line(input_file)
+        self.idac = self._parse_line(input_file)
+        self.vdac = self._parse_line(input_file)
+        self.receiver = self._parse_line(input_file)
+        self.options = self._parse_line(input_file, False)
+
+    @staticmethod
+    def _parse_line(input_file: typing.TextIO, split_line: bool = True):
+        """Parse one single line from a log file.
+
+        We have to cases here, which are handled differently:
+
+        1. the line contains info from the underlying yaml file, e.g.
+          ``Voltagecard: {'thpmos': 0, 'cardConf2': 0,...``
+          and we have to split for a column and eval the second part;
+        2. the line contains the command-line options in the for of a namespace, e.g.,
+          ``Namespace(name='threshold_40mV',..``
+          in which case we have nothing to do.
+
+        Arguments
+        ---------
+        input_file : TextIO
+            The input (text) file object, open in read mode.
+
+        split_line : bool
+            Indicates whether the input line should be split.
+        """
+        # pylint: disable=eval-used
+        pos = input_file.tell()
+        line = input_file.readline()
+        if line[0].isdigit():
+            input_file.seek(pos)
+            raise RuntimeError('Could not parse log file header')
+        if split_line:
+            _, line = line.split(':', 1)
+        return eval(line)
+
+    def inject_pixels(self) -> bool:
+        """Return whether the charge injection was enabled.
+        """
+        return self.options.inject
+
+    def trigger_threshold(self) -> float:
+        """Return the trigger threshold.
+        """
+        return self.options.threshold
+
+    def running_time(self) -> float:
+        """ Running time in seconds
+        """
+        return self.options.maxtime * 60
+
+    def injection_voltage(self) -> float:
+        """Return the injection voltage.
+        """
+        return self.options.vinj
+
+    def __str__(self) -> str:
+        """String formatting.
+        """
+        return f'{self.__class__.__name__}'\
+               f"({', '.join(f'{key} = {value}' for key, value in self.__dict__.items())})"
 
 
 class AstroPixLogFile:
@@ -43,11 +131,10 @@ class AstroPixLogFile:
         # pylint: disable=unspecified-encoding
         logger.debug(f'Opening file {self._file_path}...')
         self._file = open(self._file_path, 'r')
-        # self.header = FileHeader.read(self._file)
-        # self._readout_class = self.header.readout_class()
+        self.header = LogFileHeader(self._file)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager protocol implementation.
         """
         # pylint: disable=duplicate-code
@@ -60,10 +147,13 @@ class AstroPixLogFile:
         """
         return self
 
-    def __next__(self) -> AbstractAstroPixReadout:
-        """Read the next readout in the file.
+    def __next__(self) -> tuple[int, str]:
+        """Read the next readout in the file and return a a 2-element tuple
+        containing the readout ID and the actual readout data in text form.
         """
-        readout = self._readout_class.from_file(self._file)
-        if readout is None:
+        line = self._file.readline()
+        if line == '':
             raise StopIteration
-        return readout
+        readout_id, readout_data = line.strip('\n').split('\t')
+        readout_id = int(readout_id)
+        return readout_id, readout_data
