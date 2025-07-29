@@ -10,6 +10,7 @@ Release notes
   formats implemented (leveraging astropy tables).
 * Binary playback facility added, with pretty printing of the readouts.
 * Support for legacy .log files added, including conversion from .log to .apx.
+* New command-line interface added.
 * Docs added.
 * Unit tests added.
 * .gitignore and Makefile updated.
