@@ -28,6 +28,11 @@ def test_log_file():
     """
     file_path = ASTROPIX_ANALYSIS_TESTS_DATA / SAMPLE_RUN_ID / 'threshold_40mV_20250722-094253.log'
     with AstroPixLogFile(file_path) as input_file:
-        print(input_file.header)
+        header = input_file.header
+        print(header)
+        assert header.options().get('threshold') == 40.
+        assert header.options().get('vinj') == 300.
         for readout_id, readout_data in input_file:
-            print(readout_id, readout_data)
+            assert readout_id == 0
+            assert isinstance(readout_data, str)
+            break
