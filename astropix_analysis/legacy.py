@@ -57,12 +57,10 @@ class LogFileHeader:
 
         We have to cases here, which are handled differently:
 
-        1. the line contains info from the underlying yaml file, e.g.
-          ``Voltagecard: {'thpmos': 0, 'cardConf2': 0,...``
-          and we have to split for a column and eval the second part;
-        2. the line contains the command-line options in the for of a namespace, e.g.,
-          ``Namespace(name='threshold_40mV',..``
-          in which case we have nothing to do.
+        1. the line contains info from the underlying yaml file, and we have to
+           split for a column and eval the second part;
+        2. the line contains the command-line options in the for of a namespace,
+           in which case we have nothing to do.
 
         Arguments
         ---------
@@ -73,13 +71,20 @@ class LogFileHeader:
             Indicates whether the input line should be split.
         """
         # pylint: disable=eval-used
+        # Keep track of the position in the file in case we encounter a line with
+        # the readout and we have to roll back.
         pos = input_file.tell()
+        # Read a line.
         line = input_file.readline()
+        # If the first character of the line is a digit, we have reached a readout,
+        # which means that something went wrong. In this case we roll back to the
+        # previous line and raise an exception.
         if line[0].isdigit():
             input_file.seek(pos)
             raise RuntimeError('Could not parse log file header')
         if split_line:
             _, line = line.split(':', 1)
+        # Note the eval is ugly, here...
         return eval(line)
 
     def inject_pixels(self) -> bool:
@@ -123,9 +128,8 @@ class AstroPixLogFile:
         self._file_path = file_path
         self._file = None
         self.header = None
-        self._readout_class = None
 
-    def __enter__(self):
+    def __enter__(self) -> 'AstroPixLogFile':
         """Context manager protocol implementation.
         """
         # pylint: disable=unspecified-encoding
