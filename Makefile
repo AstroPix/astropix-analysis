@@ -21,7 +21,7 @@ lint:
 test:
 	python -m pytest tests -s
 
-html:
+doc:
 	cd docs; make html
 
 clean:
