@@ -131,6 +131,30 @@ On the other hand, when a readout object is read back from file, the signature w
 all three parameters is obviously used.
 
 
+Decoding
+~~~~~~~~
+
+Readout structures are equipped with all the necessary tool to keep track of the
+full decoding process, particularly through the following class members:
+
+* ``_decoded``: a bool flag that is asserted once the readout has been decoded,
+  so that additional calls to the ``decode()`` method return the pre-compiled list
+  of hits without running the decoding again;
+* ``_decoding_status``: a custom object containing all the information about the
+  decoding process---see :class:`~astropix_analysis.fmt.Decoding` and
+  :class:`~astropix_analysis.fmt.DecodingStatus`;
+* ``_extra_bytes``: the possible extra bytes at the end of the readout, that we might
+  be able to match with the beginning of the next readout;
+* ``_byte_mask``: a mask mapping each byte in the readout to its own role in the
+  readout--see :class:`~astropix_analysis.fmt.ByteType`.
+
+.. literalinclude:: ../astropix_analysis/fmt.py
+   :pyobject: Decoding
+
+.. literalinclude:: ../astropix_analysis/fmt.py
+   :pyobject: ByteType
+
+
 Hit structures
 --------------
 
