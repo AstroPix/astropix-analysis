@@ -38,10 +38,10 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/AstroPix/astropix-analysis"
-#Documentation = ""
+Documentation = "https://astropix.github.io/astropix-analysis/"
 Repository = "https://github.com/AstroPix/astropix-analysis"
 "Bug Tracker" = "https://github.com/AstroPix/astropix-analysis/issues"
-#Changelog = ""
+Changelog = "https://astropix.github.io/astropix-analysis/release_notes.html"
 
 #[project.scripts]
 #baldaquin = "baldaquin.cli:main"
