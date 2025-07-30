@@ -9,8 +9,58 @@ main classes:
 * :class:`~astropix_analysis.fileio.FileHeader`
 * :class:`~astropix_analysis.fileio.AstroPixBinaryFile`
 
-in addition to the necessary facilities to convert binary files to different
-output formats (e.g., csv).
+in addition to the necessary facilities to read and write astropix binary files,
+process them and decode the readouts to extract the hits, and save the latter
+to different output formats (e.g., csv):
+
+* :meth:`~astropix_analysis.fileio.apx_open`: open an astropix (``.apx``) binary
+  file for read or write;
+* :meth:`~astropix_analysis.fileio.apx_process`: process and astropix binary file,
+  extract the hits and save the latter in a variety of tabular format, leveraging
+  the astropy ``Table`` functionaloty;
+* :meth:`~astropix_analysis.fileio.apx_load`: load back hit tabular data from file.
+
+As usual, if you are in a rush, all you really have to know is how you create a
+file and write readout objects to it
+
+.. code-block:: python
+
+   from astropix_analysis.fileio import FileHeader, apx_open
+   from astropix_analysis.fmt import AstroPix4Readout
+
+   # In order to create a proper binary file you do need a header, and the header
+   # needs to be aware of the type of readouts that the file contains---this will
+   # ensure that the file can be properly read and decoded later.
+   # The optional content argument can hold any additional metadata that go in the
+   # header, the only condition being that it must be a dictionary and must
+   # be json-serializable (i.e., stick to simple Python types for the values).
+   header = FileHeader(AstroPix4Readout, content={'creator': 'Santa Claus'})
+
+   # apx_open() is the main interface to astropix binary files, and it is
+   # loosely modeled on the Python ``open()`` builtin. Note, again, that when
+   # opening a file in write mode you do need to provide a header.
+   with apx_open('path/to/file.apx', 'wb', header) as output_file:
+      while True: # This is your data collection loop.
+         # ...
+         readout.write(output_file)
+
+and how to read back the content of an actual astropix files saved in memory---which
+is even simpler
+
+.. code-block:: python
+
+   from astropix_analysis.fileio import apx_open
+
+   with apx_open('path/to/file.apx') as input_file:
+      # All the header information is readily available.
+      print(input_file.header)
+
+      # Note the underlying class support the iterator protocol, so that you can
+      # simply loop over the readouts in the files.
+      for readout in input_file:
+         print(readout)
+         for hit in readout.decode():
+            print(hit)
 
 
 File format
@@ -31,51 +81,6 @@ binary data. More specifically we have
 * the actual header, in the form of an arbitrary set of information, json encoded;
 * a sequence of readout objects, written as binary data.
 
-For those who are in a rush, the basic write machinery is implemented so that it
-can be put to use in the following fashion:
-
-.. code-block:: python
-
-   from astropix_analysis.fmt import AstroPix4Readout
-
-   # Open the output file.
-   output_file = open('path/to/my/file.apx', 'wb')
-
-   # Write the header, which can contain pretty much arbitrary information,
-   # as long as the latter can be json-encoded. A python dictionary, be it nested
-   # to an arbitrary level, will do as long as it does not contain too exotic structures.
-   header_content = dict(version=1, stuff='hits')
-   header = FileHeader(header_content)
-   header.write(output_file)
-
-   # ... event loop.
-   readout_id = 0
-   while(1):
-       readout_data = astro.get_readout()
-       if readout_data:
-           readout = AstroPix4Readout(readout_data, readout_id)
-           readout.write(output_file)
-           readout_id += 1
-
-   output_file.close()
-
-On the input side of things, the :class:`~astropix_analysis.fileio.AstroPixBinaryFile`
-class implements the context manager and iterator protocols, and the information
-can be read back in the succinct form
-
-.. code-block:: python
-
-   from astropix_analysis.fmt import AstroPixBinaryFile, AstroPix4Readout
-
-   with AstroPixBinaryFile(AstroPix4Readout).open('path/to/my/file.apx') as input_file:
-       # Note the header is automatically read and de-serialized.
-       print(input_file.header)
-
-       # You can iterate over the readout objects in the input file.
-       for readout in input_file:
-           print(readout)
-           for hit in readout.decode():
-               print(hit)
 
 File header
 -----------
