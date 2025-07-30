@@ -66,6 +66,7 @@ class LogFileHeader(dict):
         # pylint: disable=eval-used
         # Call the dict constructor.
         super().__init__()
+        logger.debug('Parsing .log file metadata...')
         line = None
         # Loop over the lines in the input file...
         while line != '':
@@ -161,11 +162,26 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
         output_file_path = input_file_path.replace('.log', '.apx')
     logger.info(f'Converting input file {input_file_path} to {output_file_path}')
     with AstroPixLogFile(input_file_path) as input_file:
+        if len(input_file.header) == 0:
+            logger.warning(f'No metadata found in the input .log file!')
         header = FileHeader(readout_class, input_file.header)
+        logger.info(header)
         with apx_open(output_file_path, 'wb', header) as output_file:
             num_readouts = 0
             for readout_id, readout_data in input_file:
-                readout_data = bytes.fromhex(readout_data)
+                # Interesting: when analyzing the high-rate strontium data taken
+                # at GSFC we found that, while typically readouts are 4096 bytes
+                # long, there is a few instances where the last byte is apparently
+                # missing, and the the ``bytes.fromhex`` call fails. For the
+                # time being I am logging out some debug information and skipping
+                # the readout, but I also opened
+                # https://github.com/AstroPix/astropix-analysis/issues/15
+                # in order not to forget this.
+                try:
+                    readout_data = bytes.fromhex(readout_data)
+                except ValueError as exception:
+                    logger.warning(f'{exception} for readout {readout_id}')
+                    continue
                 readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
                 readout.write(output_file)
                 num_readouts += 1
