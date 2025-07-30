@@ -15,21 +15,21 @@ Release notes
 * Unit tests added.
 * .gitignore and Makefile updated.
 
-* Merging pull requests
-    https://github.com/AstroPix/astropix-analysis/pull/10
+Merging pull requests
+  * https://github.com/AstroPix/astropix-analysis/pull/10
 
-* Issue(s) closed
-    https://github.com/AstroPix/astropix-analysis/pull/13
-    https://github.com/AstroPix/astropix-analysis/pull/12
-    https://github.com/AstroPix/astropix-analysis/pull/11
-    https://github.com/AstroPix/astropix-analysis/pull/7
-    https://github.com/AstroPix/astropix-analysis/pull/6
-    https://github.com/AstroPix/astropix-analysis/pull/5
-    https://github.com/AstroPix/astropix-analysis/pull/2
+Issue(s) closed
+  * https://github.com/AstroPix/astropix-analysis/pull/13
+  * https://github.com/AstroPix/astropix-analysis/pull/12
+  * https://github.com/AstroPix/astropix-analysis/pull/11
+  * https://github.com/AstroPix/astropix-analysis/pull/7
+  * https://github.com/AstroPix/astropix-analysis/pull/6
+  * https://github.com/AstroPix/astropix-analysis/pull/5
+  * https://github.com/AstroPix/astropix-analysis/pull/2
 
 
-https://github.com/AstroPix/astropix-analysis/tree/20631570c4c94222d6b985de2a043b3990699035
--------------------------------------------------------------------------------------------
+`20631570c4c94222d6b985de2a043b399069903 <https://github.com/AstroPix/astropix-analysis/tree/20631570c4c94222d6b985de2a043b399069903>`_
+---------------------------------------------------------------------------------------------------------------------------------------
 
 * Initial import of the binary I/O machinery, with classes and data structures
   to save astropix readouts to (and read them back from ) persistent storage.
@@ -38,7 +38,7 @@ https://github.com/AstroPix/astropix-analysis/tree/20631570c4c94222d6b985de2a043
 * Top-level Makefile added to facilitate some operations.
 * pyproject.toml file added.
 
-* Merging pull requests
-    https://github.com/AstroPix/astropix-analysis/pull/3
+Merging pull requests
+  * https://github.com/AstroPix/astropix-analysis/pull/3
 
-* Issue(s) closed
+Issue(s) closed

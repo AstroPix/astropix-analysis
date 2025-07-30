@@ -38,7 +38,8 @@ _BIT_REVERSE_TABLE = bytes.maketrans(
 
 
 def reverse_bit_order(data: bytearray) -> None:
-    """Reverses the bit order within of a bytearray."""
+    """Reverses the bit order within a bytearray.
+    """
     return data.translate(_BIT_REVERSE_TABLE)
 
 
@@ -126,8 +127,7 @@ class AbstractAstroPixHit(ABC):
     _SIZE = 0
     _LAYOUT = {}
     # ... while these get populated automatically once the subclass is decorated
-    # with @hitclass (and still we initialize them here to None to make the linters
-    # happy.)
+    # with @hitclass (and still we initialize them here to None to make the linters happy.)
     ATTRIBUTE_NAMES = ()
     _ATTR_IDX_DICT = {}
     _ATTR_TYPE_DICT = {}

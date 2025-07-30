@@ -7,7 +7,11 @@ astropix-analysis documentation
 ===============================
 
 This repository contains a number of facilities relevant for the aquisition,
-decoding, manipulation and analysis of astropix data.
+decoding, manipulation and analysis of astropix data, including
+
+* :ref:`fmt`
+* :ref:`fileio`
+* :ref:`legacy`
 
 (Admittedly, the scope of the repo is not well defined, yet, and you should not
 expect things around here to be stable. You will also notice that the documentation
