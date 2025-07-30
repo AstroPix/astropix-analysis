@@ -583,7 +583,7 @@ class AbstractAstroPixReadout(ABC):
         """
 
     def data(self) -> bytes:
-        """Return the underlyng binary data.
+        """Return the underlying binary data.
         """
         return self._readout_data
 
@@ -593,7 +593,7 @@ class AbstractAstroPixReadout(ABC):
         return self._decoded
 
     def decoding_status(self) -> bool:
-        """Return the full decodin status.
+        """Return the full decoding status.
         """
         return self._decoding_status
 
@@ -602,6 +602,11 @@ class AbstractAstroPixReadout(ABC):
         there are no extra bytes).
         """
         return self._extra_bytes
+
+    def all_bytes_visited(self) -> bool:
+        """Return True if all the bytes have been visited in the decoding process.
+        """
+        return np.count_nonzero(self._byte_mask == 0) == 0
 
     @classmethod
     def uid(cls) -> int:
@@ -709,12 +714,13 @@ class AbstractAstroPixReadout(ABC):
             text = f'{text}{ByteType.format_byte(byte, byte_type)}'
         return text
 
-    def pretty_print(self) -> str:
+    def pretty_print(self, hits: bool = True) -> str:
         """Full, glorious pretty print of the readout object.
         """
         text = f'{self}\nRaw: {self.data()}\nHex: {self.pretty_hex()}\n\n'
-        for hit in self.decode():
-            text = f'{text}{hit}\n'
+        if hits:
+            for hit in self.decode():
+                text = f'{text}{hit}\n'
         text = f'{text}\n{self.decoding_status()}'
         return text
 
@@ -778,7 +784,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         """
         # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
         # If the event has been already decoded, return the list of hits that
-        # has been previsouly calculated.
+        # has been previously calculated.
         if self._decoded:
             return self._hits
 
@@ -864,8 +870,9 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             byte = self._readout_data[cursor:cursor + 1]
             if not self.is_valid_start_byte(byte):
                 logger.error(self._invalid_start_byte_msg(byte, cursor))
-                self._decoding_status.set(Decoding.FATAL_ERROR)
-                return self._hits
+                while not self.is_valid_start_byte(self._readout_data[cursor:cursor + 1]):
+                    self._byte_mask[cursor] = ByteType.DROPPED
+                    cursor += 1
 
             # We have a tentative 8-byte word, with the correct start byte,
             # representing a hit.

@@ -47,7 +47,9 @@ def main(args: argparse.Namespace) -> None:
             terminal_width, _ = shutil.get_terminal_size()
             pad = '-' * ((terminal_width - len(title)) // 2)
             print(f'{pad}{title}{pad}')
-            print(readout.pretty_print())
+            print(readout.pretty_print(not args.nohits))
+            if not readout.all_bytes_visited():
+                logger.warning(f'Some bytes were not visited during the decoding!')
             input()
         print('End of file reached :-(')
 
@@ -56,4 +58,6 @@ if __name__ == "__main__":
     parser = ArgumentParser(description=_DESCRIPTION)
     parser.add_infile()
     parser.add_start()
+    parser.add_argument('--nohits', action='store_true', default=False,
+                        help='Do not print the decoded hits')
     main(parser.parse_args())
