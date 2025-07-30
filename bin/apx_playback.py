@@ -26,6 +26,10 @@ from astropix_analysis.fileio import apx_open
 
 
 _DESCRIPTION = """Astropix binary data file playback application.
+
+This application allows to playback a single .apx file and have the decoded hits
+pretty-printed on the terminal for debug purposes, along with detailed output
+from the decoding process.
 """
 
 

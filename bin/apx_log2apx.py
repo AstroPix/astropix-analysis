@@ -24,6 +24,9 @@ from astropix_analysis.legacy import log_to_apx
 
 
 _DESCRIPTION = """Astropix log file file converter.
+
+This application allows to convert one or more .log legacy text files in
+binary format.
 """
 
 

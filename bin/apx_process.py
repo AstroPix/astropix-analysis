@@ -25,8 +25,9 @@ from astropix_analysis.fileio import SUPPORTED_TABLE_FORMATS, apx_process
 
 _DESCRIPTION = f"""Astropix binary data file processing.
 
-This allows to extract the hits in a generic binary file and save them in a
-number of formats {SUPPORTED_TABLE_FORMATS}.
+This application allows to process one or more .apx binary files, decode the
+readouts to extract the hits, and save the latter in a variety of different
+formats ({SUPPORTED_TABLE_FORMATS}) amenable to offline analysis.
 """
 
 
