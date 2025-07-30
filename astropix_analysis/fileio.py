@@ -44,13 +44,11 @@ class FileHeader:
     The basic contract is that when the ``write()`` method is called we write
     into the output binary file:
 
-    * the header magic number;
     * the length of the header content in bytes;
     * the actual header content.
 
     In the opposite direction, when the ``read()`` hook is called, we do:
 
-    * read the first small chunk of the binary file and make sure the magic number is correct;
     * read the header length;
     * read and deserialize the header content, returning a full fledges ``FileHeader`` object.
 
@@ -59,7 +57,7 @@ class FileHeader:
     readout_class : type
         The readout class for the event data in the file.
 
-    content : anything that is serializable
+    content : dict
         The header content.
     """
 
@@ -171,6 +169,8 @@ def sanitize_path(file_path, extension: str = None):
 class AstroPixBinaryFile:
 
     """Class describing a .apx file.
+
+    Note we fully suport the context manager and iterator protocols.
     """
 
     MAGIC_NUMBER = '%APXDF'
@@ -289,7 +289,8 @@ _TABLE_READ_KWARGS = {
 
 def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
                 output_file_path: str = None, overwrite: bool = True, **kwargs):
-    """Generic binary file conversion function.
+    """Generic processing function to decode a binary file and save the hits
+    to a number of supported formats.
 
     Arguments
     ---------
@@ -307,6 +308,12 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
     output_file_path : str (optional)
         The full path to the output file. If this is None, the path is made by
         just changing the extension of the input file.
+
+    overwrite : bool
+        If True, existing files are silently overwritten.
+
+    **kwargs : dict
+        All the keyword arguments passed to the astropy ``table.write()`` method.
     """
     # pylint: disable=protected-access
     input_file_path = sanitize_path(input_file_path, AstroPixBinaryFile.EXTENSION)
@@ -334,8 +341,10 @@ def apx_process(input_file_path: str, format_: str, col_names: list[str] = None,
     return output_file_path
 
 
-def apx_load(file_path: str) -> astropy.table.Table:
+def apx_load(file_path: str) -> typing.Tuple[FileHeader, astropy.table.Table]:
     """Load an astropy table from a given file path.
+
+    Note this id reading in and de-serializing the header information.
     """
     logger.info(f'Reading tabular data from {file_path}...')
     format_ = file_path.split('.')[-1]
