@@ -48,8 +48,6 @@ def main(args: argparse.Namespace) -> None:
             pad = '-' * ((terminal_width - len(title)) // 2)
             print(f'{pad}{title}{pad}')
             print(readout.pretty_print(not args.nohits))
-            if not readout.all_bytes_visited():
-                logger.warning(f'Some bytes were not visited during the decoding!')
             input()
         print('End of file reached :-(')
 

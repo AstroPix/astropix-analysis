@@ -339,7 +339,7 @@ class Decoding(IntEnum):
       beginning of the next buffer;
     * ``INVALID_EXTRA_BYTES``: the readout had extra bytes at the end, but since
       the first byte is not a valid start-hit byte, these cannot effectively be used;
-    * ``INCOMPLETE_DATA_DROPPED``: the readout had incomplete hit data somewhere
+    * ``INCOMPLETE_HIT_DROPPED``: the readout had incomplete hit data somewhere
       that we had to drop.
     """
 
@@ -348,8 +348,9 @@ class Decoding(IntEnum):
     ORPHAN_BYTES_NOT_USED = 2
     VALID_EXTRA_BYTES = 3
     INVALID_EXTRA_BYTES = 4
-    INCOMPLETE_DATA_DROPPED = 5
-    FATAL_ERROR = 6
+    INCOMPLETE_HIT_DROPPED = 5
+    NOT_ALL_BYTES_VISITED = 6
+    UNKNOWN_FATAL_ERROR = 7
 
 
 class DecodingStatus:
@@ -843,6 +844,8 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
             # Check if we are at the end of the readout.
             if cursor == len(self._readout_data):
+                if not self.all_bytes_visited():
+                    self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
                 return self._hits
 
             # Handle the case where the last hit is truncated in the original readout data.
@@ -863,13 +866,12 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                     self._decoding_status.set(Decoding.INVALID_EXTRA_BYTES)
                 break
 
-            # At this point we do expect a valid start hit for the next event.
-            # If this is not the case, then there is more logic that we need to have.
-            # (And I'll raise a RuntimeError, for the moment, but this might warrant
-            # a custom exception.)
             byte = self._readout_data[cursor:cursor + 1]
+            # At this point we do expect a valid start hit for the next event...
             if not self.is_valid_start_byte(byte):
-                logger.error(self._invalid_start_byte_msg(byte, cursor))
+                # ... and if this is not the case, we go forward until we find the
+                # next hit start, dropping all the bytes in between.
+                logger.warning(self._invalid_start_byte_msg(byte, cursor))
                 while not self.is_valid_start_byte(self._readout_data[cursor:cursor + 1]):
                     self._byte_mask[cursor] = ByteType.DROPPED
                     cursor += 1
@@ -901,7 +903,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                             # we can do except dropping the hit.
                             logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')  # noqa: E501
                             logger.warning(f'Dropping incomplete hit {data[:offset]}')
-                            self._decoding_status.set(Decoding.INCOMPLETE_DATA_DROPPED)
+                            self._decoding_status.set(Decoding.INCOMPLETE_HIT_DROPPED)
                             self._byte_mask[cursor:cursor + offset] = ByteType.DROPPED
                             cursor = cursor + offset
                             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
@@ -914,6 +916,8 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
                 self._byte_mask[cursor] = ByteType.IDLE
                 cursor += 1
+        if not self.all_bytes_visited():
+            self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
         return self._hits
 
 
