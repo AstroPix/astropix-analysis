@@ -163,7 +163,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
     logger.info(f'Converting input file {input_file_path} to {output_file_path}')
     with AstroPixLogFile(input_file_path) as input_file:
         if len(input_file.header) == 0:
-            logger.warning(f'No metadata found in the input .log file!')
+            logger.warning('No metadata found in the input .log file!')
         header = FileHeader(readout_class, input_file.header)
         logger.info(header)
         with apx_open(output_file_path, 'wb', header) as output_file:

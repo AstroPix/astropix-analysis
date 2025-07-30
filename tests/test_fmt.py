@@ -69,8 +69,8 @@ def test_decode_status():
     print(status)
     if not status:
         raise ValueError
-    status.set(Decoding.INCOMPLETE_DATA_DROPPED)
-    assert status[Decoding.INCOMPLETE_DATA_DROPPED] == 1
+    status.set(Decoding.INCOMPLETE_HIT_DROPPED)
+    assert status[Decoding.INCOMPLETE_HIT_DROPPED] == 1
     print(status)
 
 
