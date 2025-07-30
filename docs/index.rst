@@ -23,7 +23,7 @@ If you are not sure where to go from here, you should probably peek at the
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    install
    develop
