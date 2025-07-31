@@ -15,17 +15,18 @@ import sys
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../astropix_analysis'))
 
-#from baldaquin import __version__  # noqa E402
+
+from astropix_analysis import __version__, PACKAGE_NAME
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'astropix-analysis'
+project = PACKAGE_NAME
 copyright = '2025, The astropix team'
 author = 'The astropix team'
 
 # The full version, including alpha/beta/rc tags
-release = 'N/A'
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
