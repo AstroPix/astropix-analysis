@@ -20,9 +20,11 @@
 import os
 import tempfile
 
+import numpy as np
 
-from astropix_analysis import logger
-from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, apx_to_csv
+from astropix_analysis import logger, ASTROPIX_ANALYSIS_TESTS_DATA
+from astropix_analysis.fileio import FileHeader, AstroPixBinaryFile, \
+    apx_open, apx_process, apx_load, SUPPORTED_TABLE_FORMATS
 from astropix_analysis.fmt import AstroPix4Readout
 
 
@@ -33,76 +35,35 @@ from astropix_analysis.fmt import AstroPix4Readout
 # pylint: disable=line-too-long
 SAMPLE_READOUT_DATA = bytearray.fromhex('bcbce08056e80da85403bcbcbcbcbcbcbcbce080d26f04ca3005bcbcbcbcbcbcffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')  # noqa: E501
 
-
-def _rm_tmpfile(file_) -> None:
-    """Delete a temporary file.
-
-    Note we resort to manually delete the temporary files because the
-    ``delete_on_close`` argument, which would be handy in a context where we
-    want to do something with the files, was only introduced in Python 3.12 and
-    we are targeting Python 3.7 as the oldest version we tentatively support.
-    """
-    file_path = file_.name
-    logger.debug(f'Removing temporary file {file_path}...')
-    os.remove(file_path)
-
-
-def test_file_header():
-    """Test the file header.
-
-    This creates a fictional FileHeader object, writes it to an output file, reads
-    it back, and makes sure it is correct.
-    """
-    # pylint: disable=protected-access
-    # Create a dummy header.
-    header = FileHeader(dict(version=1, content='hits'))
-    print(header)
-    # Write the header to an output file.
-    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)
-    with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
-        print(f'Writing header to {output_file.name}...')
-        header.write(output_file)
-        output_file.close()
-    # Read back the header from the output file.
-    print(f'Reading header from {output_file.name}...')
-    with open(output_file.name, 'rb') as input_file:
-        twin = FileHeader.read(input_file)
-    print(twin)
-    # Make sure that the whole thing roundtrips.
-    assert twin == header
-    # Remove the temporary file.
-    _rm_tmpfile(output_file)
+SAMPLE_RUN_ID = '20250723_092534'
 
 
 def test_file_write_read():
     """Try writing and reading a fully-fledged output file.
     """
-    # pylint: disable=protected-access
     # Create a dummy header.
-    header = FileHeader(dict(version=1, content='hits'))
+    header = FileHeader(AstroPix4Readout, dict(creator='Santa'))
     print(header)
     # Grab our test AstroPix4 hits.
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, 0)
     hits = readout.decode()
     # Write the output file.
-    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete=False)
+    kwargs = dict(suffix=AstroPixBinaryFile.EXTENSION, delete=False)
     with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
-        print(f'Writing data to {output_file.name}...')
-        header.write(output_file)
+        file_path = output_file.name
+    print(f'Writing data to {file_path}...')
+    with apx_open(file_path, 'wb', header) as output_file:
         readout.write(output_file)
-        output_file.close()
-    # Read back the input file---note this is done in the context of the first
-    # with, so that tempfile can cleanup after the fact.
-    print(f'Reading data from {output_file.name}...')
-    with AstroPixBinaryFile(AstroPix4Readout).open(output_file.name) as input_file:
+    # Read back the input file.
+    print(f'Reading data from {file_path}...')
+    with apx_open(file_path) as input_file:
         print(input_file.header)
         _readout = next(input_file)
-        _hits = _readout.decode()
-        for i, _hit in enumerate(_hits):
+        for i, _hit in enumerate(_readout.decode()):
             print(_hit)
             assert _hit == hits[i]
     # Remove the temporary file.
-    _rm_tmpfile(output_file)
+    os.remove(file_path)
 
 
 def test_playback_data(num_hits: int = 10):
@@ -111,10 +72,8 @@ def test_playback_data(num_hits: int = 10):
     This is just playing back the entire file, and prints out the first few readouts
     and associated hits.
     """
-    run_id = '20250507_085829'
-    file_name = f'{run_id}_data.apx'
-    file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
-    with AstroPixBinaryFile(AstroPix4Readout).open(file_path) as input_file:
+    file_path = ASTROPIX_ANALYSIS_TESTS_DATA / SAMPLE_RUN_ID / f'{SAMPLE_RUN_ID}_data.apx'
+    with apx_open(file_path) as input_file:
         print(f'\nStarting playback of binary file {file_path}...')
         print(f'File header: {input_file.header}')
         i = 0
@@ -129,24 +88,38 @@ def test_playback_data(num_hits: int = 10):
         print(f'{i + 1} hits found')
 
 
-def test_csv_convert():
-    """Read a sample real .apx file and convert it to csv.
-
-    Note we don't really do much with the converted file, other than printing a
-    few lines on the terminal---we do verify, though, that the conversion get to
-    the end of the input file.
+def test_table():
+    """Test the table conversion.
     """
-    run_id = '20250507_085829'
-    file_name = f'{run_id}_data.apx'
-    file_path = os.path.join(os.path.dirname(__file__), 'data', run_id, file_name)
-    kwargs = dict(suffix='.csv', delete=True)
-    with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
-        # Horrible trick to get a path to a temp file, rather than an actual file object.
-        output_file.close()
-        out = apx_to_csv(file_path, AstroPix4Readout, output_file_path=output_file.name)
-        assert out == output_file.name
-        with open(output_file.name, encoding=FileHeader.ENCODING) as _out:
-            for _ in range(10):
-                print(_out.readline())
-    # Remove the temporary file.
-    _rm_tmpfile(output_file)
+    file_path = ASTROPIX_ANALYSIS_TESTS_DATA / SAMPLE_RUN_ID / f'{SAMPLE_RUN_ID}_data.apx'
+    col_names = ('chip_id', 'row', 'column', 'tot_us', 'readout_id', 'timestamp')
+    with apx_open(file_path) as input_file:
+        table = input_file.to_table(col_names)
+    print(table)
+
+
+def test_table_io():
+    """Test the full IO from the binary astropix format to all the supported
+    analysis formats.
+    """
+    file_path = ASTROPIX_ANALYSIS_TESTS_DATA / SAMPLE_RUN_ID / f'{SAMPLE_RUN_ID}_data.apx'
+    # Loop over the input file once and create an astropy table in memory.
+    with apx_open(file_path) as input_file:
+        original_table = input_file.to_table()
+    num_cols = len(original_table.columns)
+    num_rows = len(original_table)
+    # Make sure that, for all the supported format, the I/O roundtrips
+    for format_ in SUPPORTED_TABLE_FORMATS:
+        # Convert the binary file to a given data format...
+        output_file_path = apx_process(file_path, format_)
+        # ... read back the table...
+        header, table = apx_load(output_file_path)
+        print(header)
+        print(header['configuration'])
+        print(table)
+        # And make sure it looks identical to the original one.
+        assert len(table.columns) == num_cols
+        assert len(table) == num_rows
+        for col_name in table.colnames:
+            logger.debug(f'Checking column {col_name} against the original file...')
+            assert np.allclose(table[col_name], original_table[col_name])
