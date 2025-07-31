@@ -75,11 +75,11 @@ class LogFileHeader(dict):
             # one line.
             pos = input_file.tell()
             line = input_file.readline()
-            # If we encouter an empty line, this probably means that we have read all 
+            # If we encouter an empty line, this probably means that we have read all
             # the metadata, and the file does not contain readout data.
             if line == '':
                 logger.warning(f'{input_file.name} does not seem to contain readout data!')
-                return 
+                return
             # If the first character of the line is a digit, we roll back to the
             # previous line and return.
             if line[0].isdigit():
@@ -170,7 +170,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
         if len(input_file.header) == 0:
             logger.warning('No metadata found in the input .log file!')
         header = FileHeader(readout_class, input_file.header)
-        logger.info(header)
+        logger.debug(header)
         with apx_open(output_file_path, 'wb', header) as output_file:
             num_readouts = 0
             for readout_id, readout_data in input_file:
