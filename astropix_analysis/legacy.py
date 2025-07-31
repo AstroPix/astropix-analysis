@@ -75,6 +75,11 @@ class LogFileHeader(dict):
             # one line.
             pos = input_file.tell()
             line = input_file.readline()
+            # If we encouter an empty line, this probably means that we have read all 
+            # the metadata, and the file does not contain readout data.
+            if line == '':
+                logger.warning(f'{input_file.name} does not seem to contain readout data!')
+                return 
             # If the first character of the line is a digit, we roll back to the
             # previous line and return.
             if line[0].isdigit():
