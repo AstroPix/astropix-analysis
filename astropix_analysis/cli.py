@@ -19,7 +19,7 @@
 
 import argparse
 
-from astropix_analysis import LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, reset_logger
+from astropix_analysis import LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, reset_logger, start_message
 
 
 class _Formatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -53,6 +53,7 @@ class ArgumentParser(argparse.ArgumentParser):
         arguments, resets the logger with the proper level---so that this operation
         happens transparently for the user with no boilerplate code.
         """
+        print(start_message())
         args = super().parse_args()
         reset_logger(args.loglevel)
         return args

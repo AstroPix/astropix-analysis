@@ -18,9 +18,16 @@
 """
 
 from pathlib import Path
+import subprocess
 import sys
 
 from loguru import logger
+
+from ._version import __version__ as __base_version__
+
+
+PACKAGE_NAME = 'astropix-analysis'
+ASTROPIX_ANAYSIS_URL = 'https://github.com/AstroPix/astropix-analysis'
 
 
 # pylint: disable=protected-access
@@ -66,3 +73,51 @@ ASTROPIX_ANALYSIS_ROOT = Path(__file__).parent
 ASTROPIX_ANALYSIS_BASE = ASTROPIX_ANALYSIS_ROOT.parent
 ASTROPIX_ANALYSIS_TESTS = ASTROPIX_ANALYSIS_BASE / 'tests'
 ASTROPIX_ANALYSIS_TESTS_DATA = ASTROPIX_ANALYSIS_TESTS / 'data'
+
+
+def _git_info() -> str:
+    """If we are in a git repo, we want to add the necessary information to the
+    version string.
+
+    This will return something along the lines of ``+gf0f18e6.dirty``.
+    """
+    # pylint: disable=broad-except
+    try:
+        # Retrieve the git short sha.
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ASTROPIX_ANALYSIS_TESTS,
+            stderr=subprocess.DEVNULL
+            ).decode().strip()
+        suffix = f'+g{sha}'
+        # If we have uncommitted changes, append a `.dirty` to the version suffix.
+        dirty = subprocess.call(
+            ["git", "diff", "--quiet"],
+            cwd=ASTROPIX_ANALYSIS_BASE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+            ) != 0
+        if dirty:
+            suffix = f'{suffix}.dirty'
+        return suffix
+    except Exception:
+        return ''
+
+
+__version__ = f'{__base_version__}{_git_info()}'
+
+
+def start_message() -> str:
+    """Return a simple start message for the applications.
+    """
+    return f"""
+    Welcome to {PACKAGE_NAME} {__version__}
+
+    Copyright (C) 2025, the astropix team.
+
+    {PACKAGE_NAME} comes with ABSOLUTELY NO WARRANTY.
+    This is free software, and you are welcome to redistribute it under certain
+    conditions. See the LICENSE file for details.
+
+    Visit {ASTROPIX_ANAYSIS_URL} for more information.
+    """
