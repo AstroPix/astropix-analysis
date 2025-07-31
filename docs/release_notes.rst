@@ -29,8 +29,8 @@ Issue(s) closed
   * https://github.com/AstroPix/astropix-analysis/pull/2
 
 
-`20631570c4c94222d6b985de2a043b399069903 <https://github.com/AstroPix/astropix-analysis/tree/20631570c4c94222d6b985de2a043b399069903>`_
----------------------------------------------------------------------------------------------------------------------------------------
+`2063157 <https://github.com/AstroPix/astropix-analysis/tree/2063157>`_
+-----------------------------------------------------------------------
 
 * Initial import of the binary I/O machinery, with classes and data structures
   to save astropix readouts to (and read them back from ) persistent storage.
