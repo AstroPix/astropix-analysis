@@ -18,8 +18,10 @@
 
 
 import argparse
+import os
+import pathlib
 
-from astropix_analysis import LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, reset_logger, start_message
+from astropix_analysis import logger, LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, reset_logger, start_message
 
 
 class _Formatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -45,6 +47,23 @@ class ArgumentParser(argparse.ArgumentParser):
         super().__init__(description=description, epilog=epilog, formatter_class=_Formatter)
         self.add_loglevel()
 
+    @staticmethod
+    def _expand_wildcards(file_list: list) -> list:
+        """
+        """
+        expanded_list = []
+        for file_path in file_list:
+            if '*' not in file_path:
+                expanded_list += [file_path]
+            else:
+                logger.debug(f'Expandind wildcards in {file_path}...')
+                parent, pattern = file_path.split('*', 1)
+                pattern = f'*{pattern}'
+                partial_list = [str(_path) for _path in pathlib.Path(parent).glob(pattern)]
+                logger.debug(f'{len(partial_list)} file(s) found.')
+                expanded_list += partial_list
+        return expanded_list
+
     def parse_args(self, args: list = None,
                    namespace: argparse.Namespace = None) -> argparse.Namespace:
         """Overloaded method.
@@ -56,6 +75,9 @@ class ArgumentParser(argparse.ArgumentParser):
         print(start_message())
         args = super().parse_args()
         reset_logger(args.loglevel)
+        # If we are under Windows we try and expand the wildcards.
+        if os.name == 'nt' and 'infiles' in args:
+            args.infiles = self._expand_wildcards(args.infiles)
         return args
 
     def add_infile(self) -> None:
