@@ -21,7 +21,8 @@ import argparse
 import os
 import pathlib
 
-from astropix_analysis import logger, LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, reset_logger, start_message
+from astropix_analysis import logger, LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, \
+    reset_logger, start_message
 
 
 class _Formatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -49,14 +50,23 @@ class ArgumentParser(argparse.ArgumentParser):
 
     @staticmethod
     def _expand_wildcards(file_list: list) -> list:
+        """Expand the wildcards in a given list of file paths.
+
+        This is intended to emulate the bash shell expansion under Windows
+        when the ``infiles`` command-line argument is passed.
+
+        See https://github.com/AstroPix/astropix-analysis/issues/16
         """
-        """
+        # Make sure the input argument is a list---this is what we are expecting
+        # from args.infiles and this is a horrible hack specific for that.
+        if not isinstance(file_list, list):
+            raise RuntimeError(f'{file_list} is not a list')
         expanded_list = []
         for file_path in file_list:
             if '*' not in file_path:
                 expanded_list += [file_path]
             else:
-                logger.debug(f'Expandind wildcards in {file_path}...')
+                logger.debug(f'Expanding wildcards in {file_path}...')
                 parent, pattern = file_path.split('*', 1)
                 pattern = f'*{pattern}'
                 partial_list = [str(_path) for _path in pathlib.Path(parent).glob(pattern)]
@@ -72,12 +82,16 @@ class ArgumentParser(argparse.ArgumentParser):
         arguments, resets the logger with the proper level---so that this operation
         happens transparently for the user with no boilerplate code.
         """
+        # First thing first, print the start message.
         print(start_message())
+        # Parse the arguments
         args = super().parse_args()
+        # Setup the logger.
         reset_logger(args.loglevel)
         # If we are under Windows we try and expand the wildcards.
         if os.name == 'nt' and 'infiles' in args:
             args.infiles = self._expand_wildcards(args.infiles)
+        # And we are good to go!
         return args
 
     def add_infile(self) -> None:

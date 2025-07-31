@@ -240,7 +240,7 @@ class AstroPixBinaryFile:
     def to_table(self, col_names: list[str] = None) -> astropy.table.Table:
         """Convert the file to a astropy table.
         """
-        logger.info(f'Converting {self._file.name} to an astropy table...')
+        logger.debug(f'Converting {self._file.name} to an astropy table...')
         table = self._readout_class.HIT_CLASS.empty_table(col_names)
         for readout in self:
             hits = readout.decode()

@@ -20,6 +20,7 @@ Merging pull requests
 
 Issue(s) closed
   * https://github.com/AstroPix/astropix-analysis/pull/13
+  * https://github.com/AstroPix/astropix-analysis/pull/13
   * https://github.com/AstroPix/astropix-analysis/pull/12
   * https://github.com/AstroPix/astropix-analysis/pull/11
   * https://github.com/AstroPix/astropix-analysis/pull/7
