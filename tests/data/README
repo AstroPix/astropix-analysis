@@ -21,4 +21,15 @@ Contains a small .log file assembled by hand (by Grant and Andrea while in Pisa
 on July 23, 2025) to illustrate all the different ways  in which decoding can be
 difficult. The corresponding .csv file was created by Grant's decoder. A verbatim
 copy of the various problematic readout is includes in the ``test_decode.py``
-unit test. 
+unit test.
+
+
+scan
+----
+These are some files taken from a threshold scan performed in Pisa while Grant
+was visiting, in July 2025. The original scan was named v4, and the settings were
+
+VPDAC 10 -> TuneDAC 0--7 -> Col 9
+
+TuneDAC 0 is a nice s0-curve, with a 50% point more or less in the middle of the
+range, while TuneDAC 5 never makes it to 100%.
