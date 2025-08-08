@@ -17,6 +17,7 @@
 """
 
 from abc import ABC, abstractmethod
+import typing
 
 from loguru import logger
 import numpy as np
@@ -63,6 +64,11 @@ class AbstractFitModel(ABC):
     def _parameter_index(self, parameter_name: str) -> int:
         """Convenience method returning the index within the parameter vector
         for a given parameter name.
+
+        Arguments
+        ---------
+        parameter_name : str
+            The name of the parameter.
         """
         return self._parameter_dict[parameter_name]
 
@@ -72,35 +78,39 @@ class AbstractFitModel(ABC):
         return len(self._parameter_dict)
 
     def name(self) -> str:
-        """Return the model name.
+        """Return the name of the underlying class.
         """
         return self.__class__.__name__
 
     def parameter_value(self, parameter_name: str) -> float:
         """Return the parameter value by name.
+
+        Arguments
+        ---------
+        parameter_name : str
+            The name of the parameter.
         """
         return self.popt[self._parameter_index(parameter_name)]
+
+    def parameter_error(self, parameter_name: str) -> float:
+        """Return the parameter error by name.
+
+        Arguments
+        ---------
+        parameter_name : str
+            The name of the parameter.
+        """
+        return self.parameter_errors()[self._parameter_index(parameter_name)]
 
     def parameter_errors(self):
         """Return the vector of parameter errors.
         """
         return np.sqrt(self.pcov.diagonal())
 
-    def parameter_error(self, parameter_name: str) -> float:
-        """Return the parameter error by name.
+    def __iter__(self):
+        """Allow iteration over the full parameter information.
         """
-        return self.parameter_errors()[self._parameter_index(parameter_name)]
-
-    def parameters(self):
-        """Return the complete status of the model in the form of a tuple
-        of tuples (parameter_name, parameter_value, parameter_error).
-
-        Note this can be overloaded by derived classes if more information
-        needs to be added.
-
-        FIXME: make the class iterable?
-        """
-        return tuple(zip(self._PARAMETER_NAMES, self.popt, self.parameter_errors()))
+        return iter(zip(self._PARAMETER_NAMES, self.popt, self.parameter_errors()))
 
     def set_parameter(self, parameter_name: str, parameter_value: float) -> None:
         """Set a parameter value.
@@ -230,22 +240,22 @@ class AbstractFitModel(ABC):
         y = self(x, *self.popt)
         plt.plot(x, y, **kwargs)
 
-    def stat_box(self, position='upper right', **kwargs):
+    def stat_box(self, position: typing.Tuple[float, float] = (0.05, 0.95), **kwargs):
         """Plot a ROOT-style stat box for the model.
         """
         card = PlotCard()
         card.add_line('Fit model', self.name())
         card.add_line('Chisquare/dof', f'{self.chisq:.2f} / {self.ndof}')
-        for name, value, error in self.parameters():
+        for name, value, error in self:
             card.add_line(name, uncertainties.ufloat(value, error))
-        card.draw(**kwargs)
+        card.draw(position, **kwargs)
         return card
 
     def __str__(self):
         """String formatting.
         """
         text = f'{self.name()} (Chisquare/dof = {self.chisq:.2f} / {self.ndof})'
-        for name, value, error in self.parameters():
+        for name, value, error in self:
             value = uncertainties.ufloat(value, error)
             text += f'\n{name:15s}: {value}'
         return text
@@ -268,6 +278,7 @@ class Constant(AbstractFitModel):
     def evaluate(x: np.ndarray, value: float) -> np.ndarray:
         """Overloaded value() method.
         """
+        # pylint: disable=arguments-differ
         return np.full(x.shape, value)
 
     def init_parameters(self, xdata, ydata, sigma):

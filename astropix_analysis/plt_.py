@@ -17,7 +17,7 @@
 """
 
 import sys
-from typing import Any
+import typing
 
 from loguru import logger
 import matplotlib
@@ -69,7 +69,7 @@ MONOSPACE_FONTS = [
 
 class PlotCard(dict):
 
-    """Small class reperesenting a text card.
+    """Small class representing a text card.
 
     This is essentially a dictionary that is capable of plotting itself on
     a matplotlib figure in the form of a multi-line graphic card.
@@ -83,15 +83,7 @@ class PlotCard(dict):
     KEY_KWARGS = dict(color='gray', size='x-small', ha='left', va='top')
     VALUE_KWARGS = dict(color='black', size='small', ha='left', va='top')
 
-    def __init__(self, data: dict = None) -> None:
-        """Constructor.
-        """
-        super().__init__()
-        if data is not None:
-            for key, value in data.items():
-                self.add_line(key, value)
-
-    def add_line(self, key: str, value: float, fmt: str = '%s', units: str = None) -> None:
+    def add_line(self, key: str, value: typing.Any = None, fmt: str = '%s') -> None:
         """Set the value for a given key.
 
         Arguments
@@ -99,24 +91,21 @@ class PlotCard(dict):
         key : str
             The key, i.e., the explanatory text for a given value.
 
-        value : float, optional
+        value : any
             The actual value (if None, a blank line will be added).
 
         fmt : str
             The string format to be used to render the value.
-
-        units : str
-            The measurement units for the value.
         """
-        self[key] = (value, fmt, units)
+        self[key] = (value, fmt)
 
-    def draw(self, axes=None, x: float = 0.05, y: float = 0.95, line_spacing: float = 0.075,
-             spacing_ratio: float = 0.75) -> None:
+    def draw(self, position: typing.Tuple[float, float] = (0.05, 0.95), axes=None,
+             line_spacing: float = 0.075, spacing_ratio: float = 0.75) -> None:
         """Draw the card.
 
         Arguments
         ---------
-        x0, y0 : float
+        position : tuple
             The absolute coordinates of the top-left corner of the card.
 
         line_spacing : float
@@ -128,19 +117,18 @@ class PlotCard(dict):
         # pylint: disable=invalid-name
         if axes is None:
             axes = plt.gca()
+        x, y = position
         key_norm = spacing_ratio / (1. + spacing_ratio)
         value_norm = 1. - key_norm
         for kwargs in (self.KEY_KWARGS, self.VALUE_KWARGS):
             kwargs['transform'] = axes.transAxes
-        for key, (value, fmt, units) in self.items():
+        for key, (value, fmt) in self.items():
             if value is None:
                 y -= 0.5 * line_spacing
                 continue
             axes.text(x, y, key, **self.KEY_KWARGS)
             y -= key_norm * line_spacing
             value = fmt % value
-            if units is not None:
-                value = f'{value} {units}'
             axes.text(x, y, value, **self.VALUE_KWARGS)
             y -= value_norm * line_spacing
 
@@ -190,7 +178,7 @@ def setup_gca(**kwargs):
     setup_axes(plt.gca(), **kwargs)
 
 
-def _set_rc_param(key: str, value: Any):
+def _set_rc_param(key: str, value: typing.Any):
     """Set the value for a single matplotlib parameter.
 
     The actual command is encapsulated into a try except block because this
