@@ -22,4 +22,5 @@ List of modules
    fileio
    fmt
    legacy
+   modeling
    plt_
