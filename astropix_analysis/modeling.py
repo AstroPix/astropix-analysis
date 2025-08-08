@@ -18,7 +18,11 @@
 
 from abc import ABC, abstractmethod
 
+from loguru import logger
 import numpy as np
+from scipy.optimize import curve_fit
+
+from astropix_analysis.plt_ import plt, PlotCard
 
 
 def modelclass(cls: type) -> type:
@@ -29,7 +33,7 @@ def modelclass(cls: type) -> type:
         raise TypeError(f'{cls.__name__} must override _PARAMETER_NAMES')
     if cls._PARAMETER_DEFAULT_VALUES is None:
         raise TypeError(f'{cls.__name__} must override _PARAMETER_DEFAULT_VALUES')
-    if len(cls._PARAMETER_NAMES) != len(cls._PARAMETER_DEFAULT_VALUES)
+    if len(cls._PARAMETER_NAMES) != len(cls._PARAMETER_DEFAULT_VALUES):
         raise RuntimeError(f'{cls.__name__} parameter mismatch')
     return cls
 
@@ -41,16 +45,15 @@ class AbstractFitModel(ABC):
 
     _PARAMETER_NAMES = None
     _PARAMETER_DEFAULT_VALUES = None
-    _PARAMETER_DEFAULT_BOUNDS = None
+    _PARAMETER_DEFAULT_BOUNDS = (-np.inf, np.inf)
     _DEFAULT_PLOTTING_RANGE = (0., 1.)
-   
+
     def __init__(self) -> None:
         """Constructor.
         """
-        self.__parameter_dict = {name: i for i, name in enumerate(self._PARAMETER_NAMES)}
-        num_params = len(self.__parameter_dict)
-        self.popt = numpy.array(self._PARAMETER_DEFAULT_VALUES, dtype='d')
-        self.pcov = numpy.zeros((num_params, num_params), dtype='d')
+        self._parameter_dict = {name: i for i, name in enumerate(self._PARAMETER_NAMES)}
+        self.popt = np.array(self._PARAMETER_DEFAULT_VALUES, dtype='d')
+        self.pcov = np.zeros((len(self), len(self)), dtype='d')
         self.xmin, self.xmax = self._DEFAULT_PLOTTING_RANGE
         self.bounds = self._PARAMETER_DEFAULT_BOUNDS
         self.chisq = -1.
@@ -61,16 +64,53 @@ class AbstractFitModel(ABC):
         for a given parameter name.
         """
         return self._parameter_dict[parameter_name]
-    
-    @abstractmethod
+
+    def __len__(self) -> int:
+        """Return the number of parameters in the model.
+        """
+        return len(self._parameter_dict)
+
+    def name(self) -> str:
+        """Return the model name.
+        """
+        return self.__class__.__name__
+
+    def parameter_value(self, parameter_name: str) -> float:
+        """Return the parameter value by name.
+        """
+        return self.popt[self._parameter_index(parameter_name)]
+
+    def parameter_errors(self):
+        """Return the vector of parameter errors.
+        """
+        return np.sqrt(self.pcov.diagonal())
+
+    def parameter_error(self, parameter_name: str) -> float:
+        """Return the parameter error by name.
+        """
+        return self.parameter_errors()[self._parameter_index(parameter_name)]
+
+    def parameters(self):
+        """Return the complete status of the model in the form of a tuple
+        of tuples (parameter_name, parameter_value, parameter_error).
+
+        Note this can be overloaded by derived classes if more information
+        needs to be added.
+
+        FIXME: make the class iterable?
+        """
+        return tuple(zip(self._PARAMETER_NAMES, self.popt, self.parameter_errors()))
+
+    def set_parameter(self, parameter_name: str, parameter_value: float) -> None:
+        """Set a parameter value.
+        """
+        self.popt[self._parameter_index(parameter_name)] = parameter_value
+
     @staticmethod
+    @abstractmethod
     def evaluate(x, *parameter_values: float) -> float:
         """Evaluate the model at a given point and a given set of parameter values.
-
-        This needs to be overloaded in any derived class for the thing to do
-        something sensible.
         """
-        pass
 
     def __call__(self, x, *parameter_values: float) -> float:
         """Return the value of the model at a given point and a given set of
@@ -81,21 +121,15 @@ class AbstractFitModel(ABC):
 
         The function is defined with this signature because it is called
         with a set of parameter values during the fit process, while
-        tipically we want to evaluate it with the current set of parameter
+        typically we want to evaluate it with the current set of parameter
         values after the fact.
         """
-        if len(parameter_values) == len(self.__parameter_dict):
+        if len(parameter_values) == len(self):
             return self.evaluate(x, *parameter_values)
-        elif len(parameter_values) == 0:
+        if len(parameter_values) == 0:
             return self.evaluate(x, *self.popt)
-        else:
-            raise RuntimeError(f'{self.name()} can only be called with 0 or {len(self.__parameter_dict)} parameters')
+        raise RuntimeError(f'{self.name()} can only be called with 0 or {len(self)} parameters')
 
-    def name(self) -> str:
-        """Return the model name.
-        """
-        return self.__class__.__name__
-    
     def init_parameters(self, xdata, ydata, sigma):
         """Assign a sensible set of values to the model parameters, based
         on a data set to be fitted.
@@ -104,44 +138,83 @@ class AbstractFitModel(ABC):
         can be reimplemented in derived classes to help make sure the
         fit converges without too much manual intervention.
         """
-        pass
 
-    def parameter_value(self, parameter_name: str) -> float:
-        """Return the parameter value by name.
+    def fit(self, xdata, ydata, p0=None, sigma=None, xmin=-np.inf, xmax=np.inf,
+            absolute_sigma=True, check_finite=True, method=None, **kwargs):
+        """Lightweight wrapper over the ``scipy.optimize.curve_fit()`` function
+        to take advantage of the modeling facilities. More specifically, in addition
+        to performing the actual fit, we update all the model parameters so that,
+        after the fact, we do have a complete picture of the fit outcome.
+
+        Arguments
+        ---------
+
+        xdata : array_like
+            The independent variable where the data is measured.
+
+        ydata : array_like
+            The dependent data --- nominally f(xdata, ...)
+
+        p0 : None, scalar, or sequence, optional
+            Initial guess for the parameters. If None, then the initial
+            values will all be 1.
+
+        sigma : None or array_like, optional
+            Uncertainties in `ydata`. If None, all the uncertainties are set to
+            1 and the fit becomes effectively unweighted.
+
+        xmin : float
+            The minimum value for the input x-values.
+
+        xmax : float
+            The maximum value for the input x-values.
+
+        absolute_sigma : bool, optional
+            If True, `sigma` is used in an absolute sense and the estimated
+            parameter covariance `pcov` reflects these absolute values.
+            If False, only the relative magnitudes of the `sigma` values matter.
+            The returned parameter covariance matrix `pcov` is based on scaling
+            `sigma` by a constant factor. This constant is set by demanding that the
+            reduced `chisq` for the optimal parameters `popt` when using the
+            *scaled* `sigma` equals unity.
+
+        method : {'lm', 'trf', 'dogbox'}, optional
+            Method to use for optimization.  See `least_squares` for more details.
+            Default is 'lm' for unconstrained problems and 'trf' if `bounds` are
+            provided. The method 'lm' won't work when the number of observations
+            is less than the number of variables, use 'trf' or 'dogbox' in this
+            case.
+
+        kwargs
+            Keyword arguments passed to `leastsq` for ``method='lm'`` or
+            `least_squares` otherwise.
         """
-        return self.popt[self._parameter_index(parameter_name)]
-
-    def parameter_error(self, parameter_name: str) -> float:
-        """Return the parameter error by name.
-        """
-        index = self._parameter_index(parameter_name)
-        return numpy.sqrt(self.pcov[index][index])
-
-    def parameter_errors(self):
-        """Return the vector of parameter errors.
-        """
-        return numpy.sqrt(self.pcov.diagonal())
-
-    def parameters(self):
-        """Return the complete status of the model in the form of a tuple
-        of tuples (parameter_name, parameter_value, parameter_error).
-
-        Note this can be overloaded by derived classes if more information
-        needs to be added.
-        """
-        return tuple(zip(self._PARAMETER_NAMES, self.popt, self.parameter_errors()))
-
-    def set_parameter(self, parameter_name: str, parameter_value: float) -> None:
-        """Set a parameter value.
-        """
-        self.popt[self._parameter_index(parameter_name)] = parameter_value
-
-    def set_parameters(self, *parameter_values: float) -> None:
-        """Set all the parameter values.
-
-        Note that the arguments must be passed in the right order.
-        """
-        self.popt = numpy.array(parameter_values, dtype='d')
+        # Select data based on the x-axis range passed as an argument.
+        _mask = np.logical_and(xdata >= xmin, xdata <= xmax)
+        xdata = xdata[_mask]
+        ydata = ydata[_mask]
+        if len(xdata) <= len(self):
+            raise RuntimeError('Not enough data to fit ({len(xdata)} points)')
+        if isinstance(sigma, np.ndarray):
+            sigma = sigma[_mask]
+        # If we are not passing default starting points for the model parameters,
+        # try and do something sensible.
+        if p0 is None:
+            self.init_parameters(xdata, ydata, sigma)
+            p0 = self.popt
+            logger.debug(f'{self.name()} parameters initialized to {p0}.')
+        # If sigma is None, assume all the errors are 1. (If we don't do this,
+        # the code will crash when calculating the chisquare.
+        if sigma is None:
+            sigma = np.full((len(ydata), ), 1.)
+        popt, pcov = curve_fit(self, xdata, ydata, p0, sigma, absolute_sigma,
+                               check_finite, self.bounds, method, **kwargs)
+        # Update the model parameters.
+        self.set_plotting_range(xdata.min(), xdata.max())
+        self.popt = popt
+        self.pcov = pcov
+        self.chisq = (((ydata - self(xdata))/sigma)**2).sum()
+        self.ndof = len(ydata) - len(self)
 
     def set_plotting_range(self, xmin: float, xmax: float) -> None:
         """Set the plotting range.
@@ -149,43 +222,30 @@ class AbstractFitModel(ABC):
         self.xmin = xmin
         self.xmax = xmax
 
-    def plot(self, *parameters, **kwargs):
+    def plot(self, **kwargs):
         """Plot the model.
-
-        Note that when this is called with a full set of parameters, the
-        self.parameters class member is overwritten so that the right values
-        can then be picked up if the stat box is plotted.
         """
-        if len(parameters) == len(self):
-            self.parameters = parameters
-        display_stat_box = kwargs.pop('display_stat_box', False)
-        x = numpy.linspace(self.xmin, self.xmax, 1000)
-        y = self(x, *parameters)
+        x = np.linspace(self.xmin, self.xmax, 1000)
+        y = self(x, *self.popt)
         plt.plot(x, y, **kwargs)
-        if display_stat_box:
-            self.stat_box(**kwargs)
 
-    def stat_box(self, position=None, plot=True, **kwargs):
+    def stat_box(self, position='upper right', **kwargs):
         """Plot a ROOT-style stat box for the model.
         """
-        if position is None:
-            position = self.DEFAULT_STAT_BOX_POSITION
-        box = xStatBox(position)
-        box.add_entry('Fit model: %s' % self.name())
-        box.add_entry('Chisquare', '%.1f / %d' % (self.chisq, self.ndof))
-        for name, value, error in self.parameter_status():
-            box.add_entry(name, value, error)
-        if plot:
-            box.plot(**kwargs)
-        return box
+        card = PlotCard()
+        card.add_line('Fit model', self.name())
+        card.add_line('Chisquare', f'{self.chisq:.2f} / {self.ndof}')
+        for name, value, error in self.parameters():
+            card.add_line(name, value, error)
+        card.draw(**kwargs)
+        return card
 
     def __str__(self):
         """String formatting.
         """
-        text = '%s model (chisq/ndof = %.2f / %d)' % (self.__class__.__name__,
-                                                      self.chisq, self.ndof)
-        for name, value, error in self.parameter_status():
-            text += '\n%15s: %.5e +- %.5e' % (name, value, error)
+        text = f'{self.name()} (chisq/ndof = {self.chisq} / {self.ndof})'
+        for name, value, error in self.parameters():
+            text += f'\n{name:15s}: {value:5e} +- {error:5e}'
         return text
 
 
@@ -206,12 +266,12 @@ class Constant(AbstractFitModel):
     def evaluate(x: np.ndarray, value: float) -> np.ndarray:
         """Overloaded value() method.
         """
-        return numpy.full(x.shape, value)
+        return np.full(x.shape, value)
 
     def init_parameters(self, xdata, ydata, sigma):
         """Overloaded init_parameters() method.
         """
-        self.set_parameter('Constant', numpy.mean(ydata))
+        self.set_parameter('Value', np.mean(ydata))
 
 
 @modelclass
@@ -223,26 +283,26 @@ class Line(AbstractFitModel):
       f(x; m, q) = mx + q
     """
 
-    _PARAMETER_NAMES = ('Intercept', 'Slope')
-    _PARAMETER_DEFAULT_VALUES = (1., 1.)
+    _PARAMETER_NAMES = ('Slope', 'Intercept')
+    _PARAMETER_DEFAULT_VALUES = (1., 0.)
     _DEFAULT_PLOTTING_RANGE = (0., 1.)
 
     @staticmethod
-    def value(x, intercept, slope):
+    def value(x, slope, intercept):
         """Overloaded value() method.
         """
-        return intercept + slope * x
+        return slope * x + intercept
 
 
-@modelclass
-class Gaussian(AbstractFitModel):
+# @modelclass
+# class Gaussian(AbstractFitModel):
 
-    """
-    """
+#     """
+#     """
 
 
-@modelclass
-class Erf(AbstractFitModel):
+# @modelclass
+# class Erf(AbstractFitModel):
 
-    """
-    """
+#     """
+#     """

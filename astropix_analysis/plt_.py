@@ -91,7 +91,7 @@ class PlotCard(dict):
             for key, value in data.items():
                 self.add_line(key, value)
 
-    def add_line(self, key: str, value: float, fmt: str = '%g', units: str = None) -> None:
+    def add_line(self, key: str, value: float, fmt: str = '%s', units: str = None) -> None:
         """Set the value for a given key.
 
         Arguments
