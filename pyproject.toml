@@ -12,6 +12,7 @@ dependencies = [
   "scipy",
   "astropy",
   "pandas",
+  "uncertainties",
   "h5py",
   "pyyaml", # This seems to be necessary for astropy in Python 3.7
   "tqdm",

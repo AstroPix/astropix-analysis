@@ -21,6 +21,7 @@ from abc import ABC, abstractmethod
 from loguru import logger
 import numpy as np
 from scipy.optimize import curve_fit
+import uncertainties
 
 from astropix_analysis.plt_ import plt, PlotCard
 
@@ -234,18 +235,19 @@ class AbstractFitModel(ABC):
         """
         card = PlotCard()
         card.add_line('Fit model', self.name())
-        card.add_line('Chisquare', f'{self.chisq:.2f} / {self.ndof}')
+        card.add_line('Chisquare/dof', f'{self.chisq:.2f} / {self.ndof}')
         for name, value, error in self.parameters():
-            card.add_line(name, value, error)
+            card.add_line(name, uncertainties.ufloat(value, error))
         card.draw(**kwargs)
         return card
 
     def __str__(self):
         """String formatting.
         """
-        text = f'{self.name()} (chisq/ndof = {self.chisq} / {self.ndof})'
+        text = f'{self.name()} (Chisquare/dof = {self.chisq:.2f} / {self.ndof})'
         for name, value, error in self.parameters():
-            text += f'\n{name:15s}: {value:5e} +- {error:5e}'
+            value = uncertainties.ufloat(value, error)
+            text += f'\n{name:15s}: {value}'
         return text
 
 
