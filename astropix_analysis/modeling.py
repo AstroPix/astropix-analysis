@@ -22,6 +22,8 @@ import typing
 from loguru import logger
 import numpy as np
 from scipy.optimize import curve_fit
+# pylint: disable=no-member
+import scipy.special
 import uncertainties
 
 from astropix_analysis.plt_ import plt, PlotCard
@@ -56,7 +58,7 @@ class AbstractFitModel(ABC):
         self._parameter_dict = {name: i for i, name in enumerate(self._PARAMETER_NAMES)}
         self.popt = np.array(self._PARAMETER_DEFAULT_VALUES, dtype='d')
         self.pcov = np.zeros((len(self), len(self)), dtype='d')
-        self.xmin, self.xmax = self._DEFAULT_PLOTTING_RANGE
+        self._xmin, self._xmax = self._DEFAULT_PLOTTING_RANGE
         self.bounds = self._PARAMETER_DEFAULT_BOUNDS
         self.chisq = -1.
         self.ndof = -1
@@ -82,6 +84,16 @@ class AbstractFitModel(ABC):
         """
         return self.__class__.__name__
 
+    def set_parameter(self, parameter_name: str, parameter_value: float) -> None:
+        """Set a parameter value.
+        """
+        self.popt[self._parameter_index(parameter_name)] = parameter_value
+
+    def perr(self):
+        """Return the vector of parameter errors.
+        """
+        return np.sqrt(self.pcov.diagonal())
+
     def parameter_value(self, parameter_name: str) -> float:
         """Return the parameter value by name.
 
@@ -100,23 +112,24 @@ class AbstractFitModel(ABC):
         parameter_name : str
             The name of the parameter.
         """
-        return self.parameter_errors()[self._parameter_index(parameter_name)]
+        return self.perr()[self._parameter_index(parameter_name)]
 
-    def parameter_errors(self):
-        """Return the vector of parameter errors.
+    def __getattr__(self, parameter_name: str) -> uncertainties.UFloat:
+        """Handy shortcut to retrieve the best value and associated error for any
+        of the fit parameter with the usual dotted syntax.
         """
-        return np.sqrt(self.pcov.diagonal())
+        if parameter_name not in self._PARAMETER_NAMES:
+            raise ValueError(f'{self.name()} has no parameter {parameter_name}')
+        value = self.parameter_value(parameter_name)
+        error = self.parameter_error(parameter_name)
+        return uncertainties.ufloat(value, error)
 
     def __iter__(self):
         """Allow iteration over the full parameter information.
         """
-        return iter(zip(self._PARAMETER_NAMES, self.popt, self.parameter_errors()))
+        return iter(zip(self._PARAMETER_NAMES, self.popt, self.perr()))
 
-    def set_parameter(self, parameter_name: str, parameter_value: float) -> None:
-        """Set a parameter value.
-        """
-        self.popt[self._parameter_index(parameter_name)] = parameter_value
-
+    # pylint: disable=invalid-name
     @staticmethod
     @abstractmethod
     def evaluate(x, *parameter_values: float) -> float:
@@ -218,104 +231,159 @@ class AbstractFitModel(ABC):
         # the code will crash when calculating the chisquare.
         if sigma is None:
             sigma = np.full((len(ydata), ), 1.)
-        popt, pcov = curve_fit(self, xdata, ydata, p0, sigma, absolute_sigma,
-                               check_finite, self.bounds, method, **kwargs)
+        self.popt, self.pcov = curve_fit(self, xdata, ydata, p0, sigma, absolute_sigma,
+                                         check_finite, self.bounds, method, **kwargs)
         # Update the model parameters.
-        self.set_plotting_range(xdata.min(), xdata.max())
-        self.popt = popt
-        self.pcov = pcov
-        self.chisq = (((ydata - self(xdata))/sigma)**2).sum()
+        self.chisq = (((ydata - self(xdata)) / sigma)**2.).sum()
         self.ndof = len(ydata) - len(self)
+        self.set_plotting_range(xdata.min(), xdata.max())
 
     def set_plotting_range(self, xmin: float, xmax: float) -> None:
         """Set the plotting range.
         """
-        self.xmin = xmin
-        self.xmax = xmax
+        self._xmin = xmin
+        self._xmax = xmax
 
-    def plot(self, **kwargs):
+    def plot(self, num_points: int = 250, **kwargs) -> None:
         """Plot the model.
         """
-        x = np.linspace(self.xmin, self.xmax, 1000)
+        x = np.linspace(self._xmin, self._xmax, num_points)
         y = self(x, *self.popt)
         plt.plot(x, y, **kwargs)
 
-    def stat_box(self, position: typing.Tuple[float, float] = (0.05, 0.95), **kwargs):
+    def stat_box(self, position: typing.Tuple[float, float] = (0.05, 0.95), **kwargs) -> PlotCard:
         """Plot a ROOT-style stat box for the model.
         """
         card = PlotCard()
-        card.add_line('Fit model', self.name())
-        card.add_line('Chisquare/dof', f'{self.chisq:.2f} / {self.ndof}')
+        text = f'{self.name()} ($\\chi^2$/dof = {self.chisq:.2f} / {self.ndof})'
+        card.add_line('Fit model', text)
         for name, value, error in self:
             card.add_line(name, uncertainties.ufloat(value, error))
         card.draw(position, **kwargs)
         return card
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String formatting.
         """
         text = f'{self.name()} (Chisquare/dof = {self.chisq:.2f} / {self.ndof})'
         for name, value, error in self:
-            value = uncertainties.ufloat(value, error)
-            text += f'\n{name:15s}: {value}'
+            text = f'{text}\n{name:>15s}: {uncertainties.ufloat(value, error)}'
         return text
 
 
 @modelclass
 class Constant(AbstractFitModel):
 
-    """Constant model.
+    """Constant.
 
     .. math::
       f(x; C) = C
     """
 
-    _PARAMETER_NAMES = ('Value',)
+    _PARAMETER_NAMES = ('value',)
     _PARAMETER_DEFAULT_VALUES = (1.,)
-    _DEFAULT_PLOTTING_RANGE = (0., 1.)
 
     @staticmethod
     def evaluate(x: np.ndarray, value: float) -> np.ndarray:
-        """Overloaded value() method.
+        """Overloaded method.
         """
         # pylint: disable=arguments-differ
         return np.full(x.shape, value)
 
     def init_parameters(self, xdata, ydata, sigma):
-        """Overloaded init_parameters() method.
+        """Overloaded method.
         """
-        self.set_parameter('Value', np.mean(ydata))
+        self.set_parameter('value', np.mean(ydata))
 
 
 @modelclass
 class Line(AbstractFitModel):
 
-    """Straight-line model.
+    """Straight-line.
 
     .. math::
       f(x; m, q) = mx + q
     """
 
-    _PARAMETER_NAMES = ('Slope', 'Intercept')
+    _PARAMETER_NAMES = ('slope', 'intercept')
     _PARAMETER_DEFAULT_VALUES = (1., 0.)
-    _DEFAULT_PLOTTING_RANGE = (0., 1.)
 
     @staticmethod
-    def value(x, slope, intercept):
-        """Overloaded value() method.
+    def evaluate(x, slope, intercept):
+        """Overloaded method.
         """
+        # pylint: disable=arguments-differ
         return slope * x + intercept
 
 
-# @modelclass
-# class Gaussian(AbstractFitModel):
+@modelclass
+class PowerLaw(AbstractFitModel):
 
-#     """
-#     """
+    """Power law.
+    """
+
+    _PARAMETER_NAMES = ('normalization', 'index')
+    _PARAMETER_DEFAULT_VALUES = (1., 1.)
+    _PARAMETER_DEFAULT_BOUNDS = ((0., -np.inf), (np.inf, np.inf))
+    _DEFAULT_PLOTTING_RANGE = (0.1, 10.)
+
+    @staticmethod
+    def evaluate(x, normalization, index):
+        """Overloaded method.
+        """
+        # pylint: disable=arguments-differ
+        return normalization * (x**(-index))
 
 
-# @modelclass
-# class Erf(AbstractFitModel):
+@modelclass
+class Gaussian(AbstractFitModel):
 
-#     """
-#     """
+    """Gaussian.
+    """
+
+    _PARAMETER_NAMES = ('normalization', 'mean', 'sigma')
+    _PARAMETER_DEFAULT_VALUES = (1., 0., 1.)
+    _PARAMETER_DEFAULT_BOUNDS = ((0., -np.inf, 0.), (np.inf, np.inf, np.inf))
+    _DEFAULT_PLOTTING_RANGE = (-5., 5.)
+
+    @staticmethod
+    def evaluate(x, normalization, mean, sigma):
+        """Overloaded method.
+        """
+        # pylint: disable=arguments-differ
+        return normalization / sigma / np.sqrt(2. * np.pi) * \
+            np.exp(-0.5 * ((x - mean) / sigma)**2.)
+
+
+@modelclass
+class Erf(AbstractFitModel):
+
+    """Error function
+    """
+
+    _PARAMETER_NAMES = ('mean', 'sigma')
+    _PARAMETER_DEFAULT_VALUES = (0., 1.)
+    _PARAMETER_DEFAULT_BOUNDS = ((-np.inf, 0.), (np.inf, np.inf))
+    _DEFAULT_PLOTTING_RANGE = (-5., 5.)
+
+    SQRT2 = np.sqrt(2.)
+
+    @staticmethod
+    def evaluate(x, mean, sigma):
+        """Overloaded method.
+        """
+        # pylint: disable=arguments-differ
+        return 0.5 * (1. + scipy.special.erf((x - mean) / sigma / Erf.SQRT2))
+
+
+@modelclass
+class ErfComplement(Erf):
+
+    """Error function complement.
+    """
+
+    @staticmethod
+    def evaluate(x, mean, sigma):
+        """Overloaded method.
+        """
+        return 1. - Erf.evaluate(x, mean, sigma)
