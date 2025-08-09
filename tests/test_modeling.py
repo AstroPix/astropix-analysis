@@ -65,6 +65,11 @@ def test_gaussian():
     """
     plt.figure('Gaussian')
     model = Gaussian()
+    x = np.random.normal(size=100000)
+    n, bins, _ = plt.hist(x, bins=100)
+    bin_centers = 0.5 * (bins[1:] + bins[:-1])
+    mask = n > 0
+    model.fit(bin_centers[mask], n[mask], sigma=np.sqrt(n)[mask])
     print(model)
     model.plot()
     model.stat_box()
