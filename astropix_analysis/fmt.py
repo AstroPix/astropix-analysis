@@ -624,7 +624,22 @@ class AbstractAstroPixReadout(ABC):
         return time.time_ns()
 
     @staticmethod
-    def read_and_unpack(input_file: typing.BinaryIO, fmt: str) -> typing.Any:
+    def _unpack(fmt: str, data: bytes) -> typing.Any:
+        """Convenience function wrapping the struct.unpack() method---this saves us
+        the trouble of getting the first (and only) element of a 1-element list.
+        """
+        return struct.unpack(fmt, data)[0]
+
+    @staticmethod
+    def _unpack_slice(fmt: str, data: bytes, start: int) -> typing.Any:
+        """Convenience function to unpack a specific slice of a bytes object.
+        """
+        size = struct.calcsize(fmt)
+        value = AbstractAstroPixReadout._unpack(fmt, data[start:start + size])
+        return value, start + size
+
+    @staticmethod
+    def _read_and_unpack(input_file: typing.BinaryIO, fmt: str) -> typing.Any:
         """Convenience function to read and unpack a fixed-size field from an input file.
 
         Arguments
@@ -635,7 +650,52 @@ class AbstractAstroPixReadout(ABC):
         fmt : str
             The format string for the field to be read.
         """
-        return struct.unpack(fmt, input_file.read(struct.calcsize(fmt)))[0]
+        return AbstractAstroPixReadout._unpack(fmt, input_file.read(struct.calcsize(fmt)))
+
+    def to_bytes(self) -> bytes:
+        """Convert the readout object to its binary representation.
+
+        This is used, e.g., to write the readout to disk, or to send the
+        object over to a network socket.
+        """
+        parts = [self._HEADER,
+                 struct.pack(self._READOUT_ID_FMT, self.readout_id),
+                 struct.pack(self._TIMESTAMP_FMT, self.timestamp),
+                 struct.pack(self._LENGTH_FMT, len(self._readout_data)),
+                 self._readout_data
+                 ]
+        return b''.join(parts)
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> AbstractAstroPixReadout:
+        """Re-assemble the readout object from its binary persistent representation.
+
+        .. note::
+           It would be nice to be able to reuse the same code here and in the
+           ``from_file()`` call, but the slight issue here, is the variable-size part
+           of the event, which makes it not straighforward to read the whole thing
+           from file in one shot. Something we might think about, though.
+
+        Arguments
+        ---------
+        data : bytes
+            The binary data representing the readout.
+        """
+        # Make sure the readout header is correct.
+        _header = data[:cls._HEADER_SIZE]
+        if _header != cls._HEADER:
+            raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
+        # Read all the fields.
+        cursor = cls._HEADER_SIZE
+        readout_id, cursor = cls._unpack_slice(cls._READOUT_ID_FMT, data, cursor)
+        timestamp, cursor = cls._unpack_slice(cls._TIMESTAMP_FMT, data, cursor)
+        _length, cursor = cls._unpack_slice(cls._LENGTH_FMT, data, cursor)
+        data = data[cursor:]
+        # Make sure the remaining part of the binary data matches our expectations
+        # in terms of its size.
+        if len(data) != _length:
+            raise RuntimeError(f'Size mismatch: {len(data)} bytes remaining, expected {_length}')
+        return cls(data, readout_id, timestamp)
 
     def write(self, output_file: typing.BinaryIO) -> None:
         """Write the complete readout to a binary file.
@@ -645,11 +705,7 @@ class AbstractAstroPixReadout(ABC):
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        output_file.write(self._HEADER)
-        output_file.write(struct.pack(self._READOUT_ID_FMT, self.readout_id))
-        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
-        output_file.write(struct.pack(self._LENGTH_FMT, len(self._readout_data)))
-        output_file.write(self._readout_data)
+        output_file.write(self.to_bytes())
 
     @classmethod
     def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
@@ -676,9 +732,9 @@ class AbstractAstroPixReadout(ABC):
         if _header != cls._HEADER:
             raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
         # Go ahead, read all the fields, and create the AstroPix4Readout object.
-        readout_id = cls.read_and_unpack(input_file, cls._READOUT_ID_FMT)
-        timestamp = cls.read_and_unpack(input_file, cls._TIMESTAMP_FMT)
-        data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
+        readout_id = cls._read_and_unpack(input_file, cls._READOUT_ID_FMT)
+        timestamp = cls._read_and_unpack(input_file, cls._TIMESTAMP_FMT)
+        data = input_file.read(cls._read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, timestamp)
 
     def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
