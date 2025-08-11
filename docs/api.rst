@@ -23,3 +23,4 @@ List of modules
    fmt
    legacy
    plt_
+   sock

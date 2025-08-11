@@ -19,7 +19,6 @@
 
 import argparse
 
-from astropix_analysis import logger
 from astropix_analysis.cli import ArgumentParser
 from astropix_analysis.fmt import AstroPix4Readout
 from astropix_analysis.sock import MulticastReceiver
@@ -32,11 +31,17 @@ _DESCRIPTION = """Receive Astropix readouts over a UDP socket.
 def main(args: argparse.Namespace) -> None:
     """Main entry point.
     """
-    receiver = MulticastReceiver(AstroPix4Readout)
+    # Note the readout class is hard-coded for the time being!
+    receiver = MulticastReceiver(AstroPix4Readout, args.group, args.port)
     while True:
-        logger.info(receiver.receive())
+        readout = receiver.receive()
+        print(readout)
+        hits = readout.decode()
+        for hit in hits:
+            print(hit)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=_DESCRIPTION)
+    parser.add_multicast()
     main(parser.parse_args())

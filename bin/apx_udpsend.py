@@ -26,7 +26,7 @@ from astropix_analysis.fileio import sanitize_path, AstroPixBinaryFile, apx_open
 from astropix_analysis.sock import MulticastSender
 
 
-_DESCRIPTION = """Send Astropix readouts over a UDP socket.
+_DESCRIPTION = """Read Astropix readouts from a file and multicast them over a UDP socket.
 """
 
 
@@ -34,11 +34,11 @@ def main(args: argparse.Namespace) -> None:
     """Main entry point.
     """
     file_path = sanitize_path(args.infile, AstroPixBinaryFile.EXTENSION)
-    sender = MulticastSender()
+    sender = MulticastSender(args.group, args.port)
     with apx_open(file_path) as input_file:
         for readout in input_file:
             logger.debug(f'Sending {readout}')
-            sender.send(readout.to_bytes())
+            sender.send_readout(readout)
             time.sleep(1.)
 
 
@@ -46,4 +46,5 @@ if __name__ == "__main__":
 
     parser = ArgumentParser(description=_DESCRIPTION)
     parser.add_infile()
+    parser.add_multicast()
     main(parser.parse_args())

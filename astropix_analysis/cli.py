@@ -23,6 +23,7 @@ import pathlib
 
 from astropix_analysis import logger, LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, \
     reset_logger, start_message
+from astropix_analysis.sock import DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_PORT
 
 
 class _Formatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -112,6 +113,15 @@ class ArgumentParser(argparse.ArgumentParser):
         self.add_argument('--loglevel', type=str, choices=LOGGING_LEVELS,
                           default=DEFAULT_LOGGING_LEVEL,
                           help='logging level')
+
+    def add_multicast(self) -> None:
+        """Add all the relevant multicast options.
+        """
+        group = self.add_argument_group('multicast options')
+        group.add_argument('--group', type=str, default=DEFAULT_MULTICAST_GROUP,
+                           help='Multicast group')
+        group.add_argument('--port', type=int, default=DEFAULT_MULTICAST_PORT,
+                           help='Multicast port')
 
     def add_start(self) -> None:
         """Add the ``start`` argument.
