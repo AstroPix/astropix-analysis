@@ -60,7 +60,7 @@ while on the monitoring side all you need to intercept packets is
    # Create the receiver socket---note the receiver needs to know
    # the readout type you are expecting in order to be able to
    # reassemble the readout objects from the binary stream.
-   receiver = MulticastSender(AstroPix4Readout, group='239.1.1.1', port=5007)
+   receiver = MulticastReceiver(AstroPix4Readout, group='239.1.1.1', port=5007)
 
     while True:
         readout = receiver.receive()
