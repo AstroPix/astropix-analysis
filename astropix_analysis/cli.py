@@ -119,9 +119,9 @@ class ArgumentParser(argparse.ArgumentParser):
         """
         group = self.add_argument_group('multicast options')
         group.add_argument('--group', type=str, default=DEFAULT_MULTICAST_GROUP,
-                           help='Multicast group')
+                           help='multicast group')
         group.add_argument('--port', type=int, default=DEFAULT_MULTICAST_PORT,
-                           help='Multicast port')
+                           help='multicast port')
 
     def add_start(self) -> None:
         """Add the ``start`` argument.

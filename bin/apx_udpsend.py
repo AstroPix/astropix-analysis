@@ -39,12 +39,14 @@ def main(args: argparse.Namespace) -> None:
         for readout in input_file:
             logger.debug(f'Sending {readout}')
             sender.send_readout(readout)
-            time.sleep(1.)
+            time.sleep(args.sleep)
 
 
 if __name__ == "__main__":
 
     parser = ArgumentParser(description=_DESCRIPTION)
     parser.add_infile()
+    parser.add_argument('--sleep', type=float, default=1.,
+                        help='sleep time between readouts (s)')
     parser.add_multicast()
     main(parser.parse_args())
