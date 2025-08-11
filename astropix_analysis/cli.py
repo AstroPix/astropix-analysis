@@ -123,6 +123,12 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument('--port', type=int, default=DEFAULT_MULTICAST_PORT,
                            help='multicast port')
 
+    def add_refresh(self, default: float) -> None:
+        """Add the refresh argument (interval in s).
+        """
+        self.add_argument('--refresh', type=float, default=default,
+                          help='refresh interval in seconds')
+
     def add_start(self) -> None:
         """Add the ``start`` argument.
         """
