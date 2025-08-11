@@ -24,7 +24,7 @@ from astropix_analysis import logger
 from astropix_analysis.fmt import AbstractAstroPixReadout
 
 
-# Note this is parte of the administratively scoped block.
+# Note this is part of the administratively scoped block.
 DEFAULT_MULTICAST_GROUP = '239.1.1.1'
 DEFAULT_MULTICAST_PORT = 5007
 
