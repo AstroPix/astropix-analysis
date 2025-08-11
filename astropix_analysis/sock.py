@@ -18,6 +18,7 @@
 
 import socket
 import struct
+import typing
 
 from astropix_analysis import logger
 from astropix_analysis.fmt import AbstractAstroPixReadout
@@ -28,7 +29,45 @@ DEFAULT_MULTICAST_GROUP = '239.1.1.1'
 DEFAULT_MULTICAST_PORT = 5007
 
 
-class MulticastSender(socket.socket):
+class MulticastSocketBase(socket.socket):
+
+    """Base class for UDP multicast sockets.
+
+    Arguments
+    ---------
+    group : str
+        The multicast group.
+
+    port : int
+        The multicast port.
+    """
+
+    def __init__(self, group: str = DEFAULT_MULTICAST_GROUP,
+                 port: int = DEFAULT_MULTICAST_PORT) -> None:
+        """Constructor.
+        """
+        # Cache the address information
+        self._address = (group, port)
+        logger.info(f'Creating {self.__class__.__name__} with address {self._address}...')
+        # AF_INET specify the IPv4 address family, SOCK_DGRAM the socket type,
+        # and IPPROTO_UDP specifies the UDP protocol.
+        super().__init__(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+
+    def set_option(self, identifier: int, value: typing.Any) -> None:
+        """Set a specific option for the socket.
+
+        Arguments
+        ---------
+        identifier : int
+            The numerical identifier for the option.
+
+        value : any
+            The value for the option.
+        """
+        self.setsockopt(socket.IPPROTO_IP, identifier, value)
+
+
+class MulticastSender(MulticastSocketBase):
 
     """Simple socket class to multicast packets over the network.
 
@@ -51,16 +90,9 @@ class MulticastSender(socket.socket):
                  port: int = DEFAULT_MULTICAST_PORT, ttl: int = 2) -> None:
         """Constructor.
         """
-        # Since the underlying socket is is not bound to any specific address,
-        # we need to cache the address information here in order to have it
-        # available in ``sendto()`` calls.
-        self._address = (group, port)
-        logger.info(f'Creating {self.__class__.__name__} with address {self._address}...')
-        # AF_INET specify the IPv4 address family, SOCK_DGRAM the socket type,
-        # and IPPROTO_UDP specifies the UDP protocol.
-        super().__init__(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        # Here we are defining the TTL setting for multicast packets
-        self.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
+        super().__init__(group, port)
+        # Set the TTL (time-to-live) for the multicast packets.
+        self.set_option(socket.IP_MULTICAST_TTL, ttl)
 
     def send_data(self, data: bytes) -> int:
         """Send a packet over the network.
@@ -83,7 +115,7 @@ class MulticastSender(socket.socket):
         return self.send_data(readout.to_bytes())
 
 
-class MulticastReceiver(socket.socket):
+class MulticastReceiver(MulticastSocketBase):
 
     """Simple socket class to receive multicast packets.
 
@@ -105,16 +137,13 @@ class MulticastReceiver(socket.socket):
                  port: int = DEFAULT_MULTICAST_PORT) -> None:
         """Constructor.
         """
-
-        logger.info(f'Creating {self.__class__.__name__} with address ({group}, {port})...')
-        # AF_INET specify the IPv4 address family, SOCK_DGRAM the socket type,
-        # and IPPROTO_UDP specifies the UDP protocol.
-        super().__init__(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self._readout_class = readout_class
+        super().__init__(group, port)
         # Bind to all interfaces on port
         self.bind(('', port))
+        # Join the appropriate multicast group.
         _mreq = struct.pack('4sl', socket.inet_aton(group), socket.INADDR_ANY)
-        self.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, _mreq)
-        self._readout_class = readout_class
+        self.set_option(socket.IP_ADD_MEMBERSHIP, _mreq)
 
     def receive(self, max_size: int = DEFAULT_MAX_PACKET_SIZE) -> AbstractAstroPixReadout:
         """Wait for a packet to be available, read the binary data and
