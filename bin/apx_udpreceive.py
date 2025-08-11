@@ -33,12 +33,15 @@ def main(args: argparse.Namespace) -> None:
     """
     # Note the readout class is hard-coded for the time being!
     receiver = MulticastReceiver(AstroPix4Readout, args.group, args.port)
-    while True:
-        readout = receiver.receive()
-        print(readout)
-        hits = readout.decode()
-        for hit in hits:
-            print(hit)
+    try:
+        while True:
+            readout = receiver.receive()
+            print(readout)
+            hits = readout.decode()
+            for hit in hits:
+                print(hit)
+    except KeyboardInterrupt:
+        print('Done, bye!')
 
 
 if __name__ == "__main__":

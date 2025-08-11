@@ -35,11 +35,14 @@ def main(args: argparse.Namespace) -> None:
     """
     file_path = sanitize_path(args.infile, AstroPixBinaryFile.EXTENSION)
     sender = MulticastSender(args.group, args.port)
-    with apx_open(file_path) as input_file:
-        for readout in input_file:
-            logger.debug(f'Sending {readout}')
-            sender.send_readout(readout)
-            time.sleep(args.sleep)
+    try:
+        with apx_open(file_path) as input_file:
+            for readout in input_file:
+                logger.debug(f'Sending {readout}')
+                sender.send_readout(readout)
+                time.sleep(args.sleep)
+    except KeyboardInterrupt:
+        print('Done, bye!')
 
 
 if __name__ == "__main__":
