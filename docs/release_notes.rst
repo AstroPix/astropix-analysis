@@ -3,6 +3,10 @@
 Release notes
 =============
 
+
+`18b755d <https://github.com/AstroPix/astropix-analysis/tree/18b755d>`_
+-----------------------------------------------------------------------
+
 * Decode order added to the hit data structures.
 * Unique ID added to the readout classes, and FileHeader machinery changed accordingly.
 * Full I/O implemented in binary files, modeled on the native Python open() builtin.
@@ -27,6 +31,7 @@ Issue(s) closed
   * https://github.com/AstroPix/astropix-analysis/pull/6
   * https://github.com/AstroPix/astropix-analysis/pull/5
   * https://github.com/AstroPix/astropix-analysis/pull/2
+
 
 
 `2063157 <https://github.com/AstroPix/astropix-analysis/tree/2063157>`_
