@@ -21,6 +21,8 @@ List of modules
    cli
    fileio
    fmt
+   hist
    legacy
+   monitor
    plt_
    sock
