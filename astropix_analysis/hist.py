@@ -350,6 +350,14 @@ class Matrix2d(Histogram2d):
 
     def _draw(self, axes, logz=False, **kwargs):
         """Overloaded method.
+
+        Note we have to transpose the underlying content due to the very
+        nature of item addressing in numpy arrays.
+
+        .. warning::
+           This points to the fact that some of the Histogram2d interfaces might
+           be broken, and we might better off with a content() method that
+           one can overload.
         """
         image = axes.matshow(self._content.T, **kwargs)
         self._update_color_bar(axes, image)
