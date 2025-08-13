@@ -12,7 +12,8 @@ dependencies = [
   "scipy",
   "pandas",
   "tqdm",
-  "pydata-sphinx-theme"
+  "pydata-sphinx-theme",
+  "sphinxcontrib-programoutput"
 ]
 requires-python = ">=3.7"
 authors = [{name = "The astropix team"}]
