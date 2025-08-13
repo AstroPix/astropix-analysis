@@ -62,6 +62,19 @@ class AbstractMonitor(ABC):
         self._receiver = MulticastReceiver(readout_class, group, port)
         self._readout_buffer = queue.Queue()
 
+    @staticmethod
+    def create_canvas(**kwargs):
+        """Create the matplotlib canvas that will hold the monitoring plot.
+
+        Arguments
+        ---------
+        kwargs : dict
+            Any keyword argument accepted by ``plt.subplot()``.
+        """
+        plt.ion()
+        kwargs.setdefault('num', f'Astropix Monitor {__version__}')
+        return plt.subplots(**kwargs)
+
     def _listen(self) -> None:
         """Listening function to be started on a separate thread.
 
@@ -157,10 +170,8 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
         super().__init__(AstroPix4Readout, group, port)
         self.tot_hist = Histogram1d(np.linspace(0., 500., 100), 'TOT [$\\mu$s]')
         self.hit_map = Matrix2d(self.NUM_COLS, self.NUM_ROWS)
-        plt.ion()
-        _, axes = plt.subplots(ncols=2, figsize=(12, 7), width_ratios=(1., 0.5),
-                               num=f'Astropix Monitor {__version__}')
-        self.tot_ax, self.hit_ax = axes
+        _, axes_list = self.create_canvas(ncols=2, figsize=(12, 7), width_ratios=(1., 0.5))
+        self.tot_ax, self.hit_ax = axes_list
 
     def process_readout(self, readout: AbstractAstroPixReadout):
         """Overloaded method.
