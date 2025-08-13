@@ -25,6 +25,7 @@ import numpy as np
 
 from astropix_analysis import __version__
 from astropix_analysis.fmt import AbstractAstroPixReadout, AstroPix4Readout
+from astropix_analysis.hist import Histogram1d
 from astropix_analysis.plt_ import plt
 from astropix_analysis.sock import MulticastReceiver
 from astropix_analysis.sock import DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_PORT
@@ -156,10 +157,8 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
     def setup(self) -> None:
         """Overloaded method.
         """
-        # pylint: disable=attribute-defined-outside-init
-        self.tot_data = []
+        self.tot_hist = Histogram1d(np.linspace(0., 500., 100), 'TOT [$\\mu$s]')
         self.hitmap_data = np.zeros(shape=(self.NUM_ROWS, self.NUM_COLS))
-        self.tot_binning = np.linspace(0., 500., 100)
         plt.ion()
         _, axes = plt.subplots(ncols=2, figsize=(12, 7), width_ratios=(1., 0.5),
                                num=f'Astropix Monitor {__version__}')
@@ -169,16 +168,14 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
         """Overloaded method.
         """
         for hit in readout.decode():
-            self.tot_data.append(hit.tot_us)
+            self.tot_hist.fill(hit.tot_us)
             self.hitmap_data[hit.row, hit.column] += 1
 
     def update_display(self) -> None:
         """Overloaded method.
         """
         self.tot_ax.cla()
-        self.tot_ax.hist(self.tot_data, bins=self.tot_binning)
-        self.tot_ax.set_xlabel('TOT [$\\mu$s]')
-        self.tot_ax.set_ylabel('Entries per bin')
+        self.tot_hist.draw(self.tot_ax)
         self.hitmap_ax.cla()
         # Need to add a colorbar!
         self.hitmap_ax.matshow(self.hitmap_data)
