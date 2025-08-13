@@ -1,0 +1,33 @@
+2025-07-23 09:25:34,319:319.__main__.INFO:Configuring the chip...
+2025-07-23 09:25:36,358:358.core.nexysio.INFO:[32mDigilent USB A opened
+ [0m
+2025-07-23 09:25:36,358:358.astropix.INFO:Opened FPGA, testing...
+2025-07-23 09:25:36,372:372.astropix.INFO:FPGA test successful.
+2025-07-23 09:25:36,381:381.core.asic.WARNING:astropix4 Telescope config not found!
+2025-07-23 09:25:36,381:381.core.asic.INFO:astropix4 Sample clock setup with 10 ns period found!
+2025-07-23 09:25:36,382:382.core.asic.INFO:astropix4 matrix dimensions found!
+2025-07-23 09:25:36,382:382.core.asic.INFO:astropix4 configcards found!
+2025-07-23 09:25:36,382:382.core.asic.INFO:astropix4 config found!
+2025-07-23 09:25:36,382:382.core.asic.INFO:astropix4 tdac config found!
+2025-07-23 09:25:36,382:382.astropix.INFO:update_asic_config() got no arguments, nothing to do.
+2025-07-23 09:25:36,382:382.astropix.INFO:enabling analog output in column 9
+2025-07-23 09:25:36,382:382.astropix.INFO:LOADING TO ASIC...
+2025-07-23 09:25:36,492:492.core.asic.INFO:Wrote configbits successfully
+2025-07-23 09:25:36,492:492.astropix.INFO:ASIC SUCCESSFULLY CONFIGURED
+2025-07-23 09:25:36,493:493.core.asic.INFO:Set internal vdac: vinj to 0.250000 V (dacval: 142)
+2025-07-23 09:25:36,504:504.core.spi.INFO:SPI: Send routing cmd
+2025-07-23 09:25:36,507:507.astropix.INFO:SPI ENABLED
+2025-07-23 09:25:36,615:615.core.asic.INFO:Wrote configbits successfully
+2025-07-23 09:25:36,616:616.__main__.INFO:Chip fully configured!
+2025-07-23 09:25:36,621:621.core.injectionboard.INFO:
+Write Injection Config
+===============================
+2025-07-23 09:25:36,622:622.core.injectionboard.INFO:Start injection
+2025-07-23 09:25:36,622:622.astropix.INFO:Began injection
+2025-07-23 09:25:36,622:622.__main__.INFO:Copying configuration to E:\data\astropix-output\20250723_092534\config_v4_none_20250723_092534.yml...
+2025-07-23 09:25:36,633:633.__main__.INFO:Opening binary file E:\data\astropix-output\20250723_092534\20250723_092534_data.apx...
+2025-07-23 09:26:36,635:635.__main__.INFO:Data acquisition interrupted after 775 readouts.
+2025-07-23 09:26:36,636:636.__main__.INFO:Output file closed.
+2025-07-23 09:26:36,638:638.core.injectionboard.INFO:Stop injection
+2025-07-23 09:26:36,638:638.astropix.INFO:Stopped injection
+2025-07-23 09:26:36,652:652.__main__.INFO:Program terminated successfully!
