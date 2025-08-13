@@ -20,7 +20,8 @@
 import pytest
 
 from astropix_analysis.fmt import BitPattern, AstroPix4Readout, AbstractAstroPixReadout, \
-     AbstractAstroPixHit
+     AbstractAstroPixHit, AstroPix4Hit, uid_to_readout_class, Decoding, DecodingStatus, \
+     readoutclass
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -56,55 +57,112 @@ def test_bit_pattern():
     assert pattern[6:10] == 3
 
 
+def test_decode_status():
+    """Test the DecodeStatus class.
+    """
+    status = DecodingStatus()
+    print(status)
+    if status:
+        raise ValueError
+    status.set(Decoding.ORPHAN_BYTES_MATCHED)
+    assert status[Decoding.ORPHAN_BYTES_MATCHED] == 1
+    print(status)
+    if not status:
+        raise ValueError
+    status.set(Decoding.INCOMPLETE_HIT_DROPPED)
+    assert status[Decoding.INCOMPLETE_HIT_DROPPED] == 1
+    print(status)
+
+
 def test_new_decoding():
     """Test the new decoding stuff.
     """
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id=0)
     print(readout)
     hits = readout.decode()
-    assert len(hits) == 2
     for hit in hits:
         print(hit)
+        print(hit.attribute_values(['chip_id', 'payload', 'row', 'column']))
+    assert len(hits) == 2
     hit0, hit1 = hits[0], hits[1]
-    # Compare the hit objects with the conten of the csv files---note we are
+    # Compare the hit objects with the content of the csv files---note we are
     # assuming that if the TOT value in us is ok, then all the intermediate timestamp
     # fields are ok, as well.
     assert (hit0.chip_id, hit0.payload, hit0.row, hit0.column) == DECODED_DATA0[0:4]
     assert hit0.tot_us == DECODED_DATA0[-1]
     assert (hit1.chip_id, hit1.payload, hit1.row, hit1.column) == DECODED_DATA1[0:4]
     assert hit1.tot_us == DECODED_DATA1[-1]
+    # And test the exact same thing using the values() method.
+    attrs = ['chip_id', 'payload', 'row', 'column']
+    assert hit0.attribute_values(attrs) == list(DECODED_DATA0[0:4])
+    assert hit1.attribute_values(attrs) == list(DECODED_DATA1[0:4])
+    assert hit0.attribute_values(['tot_us']) == [DECODED_DATA0[-1]]
+    assert hit1.attribute_values(['tot_us']) == [DECODED_DATA1[-1]]
 
 
-def test_hit():
-    """Test the hit formatting and conversion.
+def test_table():
+    """Create a table from a readout.
     """
     readout = AstroPix4Readout(SAMPLE_READOUT_DATA, readout_id=0)
+    hit_class = readout.HIT_CLASS
+    col_names = hit_class.ATTRIBUTE_NAMES
+    table = hit_class.empty_table(col_names)
     hits = readout.decode()
-    hit = hits[0]
-    print(hit)
-    print(hit.text_header())
-    print(hit.to_csv())
+    for hit in hits:
+        table.add_row(hit.attribute_values(col_names))
+    print(table)
 
 
 def test_abc():
     """Make sure we cannot instantiate the abstract base classes.
     """
-    # pylint: disable=unused-variable, missing-class-docstring
+    # pylint: disable=unused-variable, missing-class-docstring, abstract-class-instantiated
+
+    # AbstractAstroPixHit is abstract and we need to overload the constructor!
+    with pytest.raises(TypeError) as info:
+        _ = AbstractAstroPixHit(None)
+    print(info.value)
 
     # Make sure classes derived from AbstractAstroPixReadout override HIT_CLASS
     with pytest.raises(TypeError) as info:
+        @readoutclass
         class Readout1(AbstractAstroPixReadout):
             pass
     print(info.value)
 
     # Make sure HIT_CLASS is not abstract.
     with pytest.raises(TypeError) as info:
+        @readoutclass
         class Readout2(AbstractAstroPixReadout):
             HIT_CLASS = AbstractAstroPixHit
     print(info.value)
 
     # Make sure HIT_CLASS is of the proper type.
     with pytest.raises(TypeError) as info:
+        @readoutclass
         class Readout3(AbstractAstroPixReadout):
             HIT_CLASS = float
     print(info.value)
+
+    # Make sure _UID is overriden.
+    with pytest.raises(TypeError) as info:
+        @readoutclass
+        class Readout4(AbstractAstroPixReadout):
+            HIT_CLASS = AstroPix4Hit
+    print(info.value)
+
+    # Make sure _UID is an integer.
+    with pytest.raises(TypeError) as info:
+        @readoutclass
+        class Readout5(AbstractAstroPixReadout):
+            HIT_CLASS = AstroPix4Hit
+            _UID = 'hello'
+    print(info.value)
+
+
+def test_uid():
+    """Test the UID mechanism.
+    """
+    uid = 4000
+    assert AstroPix4Readout.uid() == uid
+    assert uid_to_readout_class(uid) == AstroPix4Readout

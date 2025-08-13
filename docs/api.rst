@@ -18,6 +18,8 @@ List of modules
    :maxdepth: 2
 
    analysis
+   cli
    fileio
    fmt
+   legacy
    plt_

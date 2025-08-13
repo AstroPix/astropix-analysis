@@ -4,13 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "astropix-analysis"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
   "loguru",
   "numpy",
   "matplotlib",
   "scipy",
+  "astropy",
   "pandas",
+  "h5py",
+  "pyyaml", # This seems to be necessary for astropy in Python 3.7
   "tqdm",
   "pydata-sphinx-theme",
   "sphinxcontrib-programoutput"
@@ -36,10 +39,10 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/AstroPix/astropix-analysis"
-#Documentation = ""
+Documentation = "https://astropix.github.io/astropix-analysis/"
 Repository = "https://github.com/AstroPix/astropix-analysis"
 "Bug Tracker" = "https://github.com/AstroPix/astropix-analysis/issues"
-#Changelog = ""
+Changelog = "https://astropix.github.io/astropix-analysis/release_notes.html"
 
 #[project.scripts]
 #baldaquin = "baldaquin.cli:main"
