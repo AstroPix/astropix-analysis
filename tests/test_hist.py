@@ -18,7 +18,7 @@
 
 import numpy as np
 
-from astropix_analysis.hist import Histogram1d, Histogram2d
+from astropix_analysis.hist import Histogram1d, Histogram2d, Matrix2d
 from astropix_analysis.plt_ import plt
 
 
@@ -45,7 +45,19 @@ def test_hist2d(num_bins: int = 100, sample_size: int = 100000):
     hist.draw()
 
 
+def test_matrix2d():
+    """Test the Matrix2d histogram type.
+    """
+    hist = Matrix2d(16, 8, 'Column', 'Row')
+    plt.figure('Two-dimensional matrix')
+    hist.fill(6, 2)
+    hist.fill(6, 2)
+    hist.fill(15, 7)
+    hist.draw()
+
+
 if __name__ == '__main__':
     test_hist1d()
     test_hist2d()
+    test_matrix2d()
     plt.show()

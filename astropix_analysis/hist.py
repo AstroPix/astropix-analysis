@@ -255,6 +255,23 @@ class Histogram2d(AbstractHistogram):
         """
         # pylint: disable=too-many-arguments
         super().__init__((xbinning, ybinning), [xlabel, ylabel, zlabel])
+        self.color_bar = None
+
+    def _update_color_bar(self, axes, image) -> None:
+        """Update the color bar after a histogram re-draw.
+
+        This is a little bit tricky, as by default the colorbar gets her own
+        axes, and a call to plt.gca().cla() will not delete the color bar.
+        This is a small utility function to draw the color bar the first time
+        around, and then re-bind to the latest version of the data each time
+        the histogram is re-drawn.
+        """
+        if self.color_bar is None:
+            self.color_bar = plt.colorbar(image, ax=axes)
+            if self._axis_labels[2] is not None:
+                self.color_bar.set_label(self._axis_labels[2])
+        else:
+            self.color_bar.update_normal(image)
 
     def _draw(self, axes, logz=False, **kwargs):
         """Overloaded method.
@@ -271,10 +288,8 @@ class Histogram2d(AbstractHistogram):
             vmin = kwargs.pop('vmin', None)
             vmax = kwargs.pop('vmax', None)
             kwargs.setdefault('norm', matplotlib.colors.LogNorm(vmin, vmax))
-        _, _, _, img = axes.hist2d(x, y, bins, weights=w, **kwargs)
-        color_bar = plt.colorbar(img, ax=axes)
-        if self._axis_labels[2] is not None:
-            color_bar.set_label(self._axis_labels[2])
+        _, _, _, image = axes.hist2d(x, y, bins, weights=w, **kwargs)
+        self._update_color_bar(axes, image)
 
     def slice(self, bin_index: int, axis: int = 0):
         """Return a slice of the two-dimensional histogram along the given axis.
@@ -317,3 +332,24 @@ class Histogram2d(AbstractHistogram):
         """Return the vertical slice corresponding to a given y value.
         """
         return self.vslice(self.bisect(self._bin_edges[0], x))
+
+
+class Matrix2d(Histogram2d):
+
+    """Specialized 2-dimensional histogram to display matrix-like data
+    (e.g., hitmap in logical space).
+    """
+
+    def __init__(self, num_cols: int, num_rows: int, xlabel='Column', ylabel='Row',
+                 zlabel='Entries/bin') -> None:
+        """Constructor.
+        """
+        xedges = np.arange(-0.5, num_cols)
+        yedges = np.arange(-0.5, num_rows)
+        super().__init__(xedges, yedges, xlabel, ylabel, zlabel)
+
+    def _draw(self, axes, logz=False, **kwargs):
+        """Overloaded method.
+        """
+        image = axes.matshow(self._content.T, **kwargs)
+        self._update_color_bar(axes, image)

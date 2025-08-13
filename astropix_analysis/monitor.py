@@ -25,7 +25,7 @@ import numpy as np
 
 from astropix_analysis import __version__
 from astropix_analysis.fmt import AbstractAstroPixReadout, AstroPix4Readout
-from astropix_analysis.hist import Histogram1d
+from astropix_analysis.hist import Histogram1d, Matrix2d
 from astropix_analysis.plt_ import plt
 from astropix_analysis.sock import MulticastReceiver
 from astropix_analysis.sock import DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_PORT
@@ -124,9 +124,11 @@ class AbstractMonitor(ABC):
         except KeyboardInterrupt:
             print('Done, bye!')
 
-    @abstractmethod
     def setup(self) -> None:
         """Setup the monitor.
+
+        This is a general placeholder for the operations that need to be
+        performed each time the monitor in restarted.
         """
 
     @abstractmethod
@@ -153,31 +155,24 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
         """Overloaded constructor.
         """
         super().__init__(AstroPix4Readout, group, port)
-
-    def setup(self) -> None:
-        """Overloaded method.
-        """
         self.tot_hist = Histogram1d(np.linspace(0., 500., 100), 'TOT [$\\mu$s]')
-        self.hitmap_data = np.zeros(shape=(self.NUM_ROWS, self.NUM_COLS))
+        self.hit_map = Matrix2d(self.NUM_COLS, self.NUM_ROWS)
         plt.ion()
         _, axes = plt.subplots(ncols=2, figsize=(12, 7), width_ratios=(1., 0.5),
                                num=f'Astropix Monitor {__version__}')
-        self.tot_ax, self.hitmap_ax = axes
+        self.tot_ax, self.hit_ax = axes
 
     def process_readout(self, readout: AbstractAstroPixReadout):
         """Overloaded method.
         """
         for hit in readout.decode():
             self.tot_hist.fill(hit.tot_us)
-            self.hitmap_data[hit.row, hit.column] += 1
+            self.hit_map.fill(hit.column, hit.row)
 
     def update_display(self) -> None:
         """Overloaded method.
         """
         self.tot_ax.cla()
         self.tot_hist.draw(self.tot_ax)
-        self.hitmap_ax.cla()
-        # Need to add a colorbar!
-        self.hitmap_ax.matshow(self.hitmap_data)
-        self.hitmap_ax.set_xlabel('Column')
-        self.hitmap_ax.set_ylabel('Row')
+        self.hit_ax.cla()
+        self.hit_map.draw(self.hit_ax)
