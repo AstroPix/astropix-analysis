@@ -360,4 +360,7 @@ class Matrix2d(Histogram2d):
            one can overload.
         """
         image = axes.matshow(self._content.T, **kwargs)
+        axes.set_xticks(self._bin_edges[0], minor=True)
+        axes.set_yticks(self._bin_edges[1], minor=True)
+        axes.grid(which='minor', linewidth=1)
         self._update_color_bar(axes, image)
