@@ -4,6 +4,17 @@ Release notes
 =============
 
 
+* New ``multicast`` and ``refresh`` arguments in the cli module.
+* ``to_bytes()`` and ``from_bytes()`` methods added to the readout classes
+  to support monitoring over a network.
+* Histogram facilities (``hist`` module) added.
+* Simple monitoring facilities (``monitor`` and ``sock`` modules along with
+  associated apps) added.
+* Docs updated and unit tests added.
+Merging pull requests
+  * https://github.com/AstroPix/astropix-analysis/pull/17
+
+
 `18b755d <https://github.com/AstroPix/astropix-analysis/tree/18b755d>`_
 -----------------------------------------------------------------------
 
