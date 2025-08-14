@@ -11,6 +11,7 @@ Release notes
 * Simple monitoring facilities (``monitor`` and ``sock`` modules along with
   associated apps) added.
 * Docs updated and unit tests added.
+
 Merging pull requests
   * https://github.com/AstroPix/astropix-analysis/pull/17
 
