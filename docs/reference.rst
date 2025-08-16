@@ -36,11 +36,11 @@ apx_process
    :shell:
 
 
-.. _reference-apx_udpreceive:
+.. _reference-apx_udprec:
 
-apx_udpreceive
-~~~~~~~~~~~~~~
-.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_udpreceive.py --help
+apx_udprec
+~~~~~~~~~~
+.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_udprec.py --help
    :shell:
 
 
