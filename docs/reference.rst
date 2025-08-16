@@ -3,11 +3,20 @@
 Application reference
 =====================
 
-.. _reference-apx_process:
 
-apx_process
+.. _reference-apx_log2apx:
+
+apx_log2apx
 ~~~~~~~~~~~
-.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_process.py --help
+.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_log2apx.py --help
+   :shell:
+
+
+.. _reference-apx_monitor:
+
+apx_monitor
+~~~~~~~~~~~
+.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_monitor.py --help
    :shell:
 
 
@@ -19,9 +28,25 @@ apx_playback
    :shell:
 
 
-.. _reference-apx_log2apx:
+.. _reference-apx_process:
 
-apx_log2apx
+apx_process
 ~~~~~~~~~~~
-.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_log2apx.py --help
+.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_process.py --help
+   :shell:
+
+
+.. _reference-apx_udprec:
+
+apx_udprec
+~~~~~~~~~~
+.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_udprec.py --help
+   :shell:
+
+
+.. _reference-apx_udpsend:
+
+apx_udpsend
+~~~~~~~~~~~
+.. program-output:: export PYTHONPATH=../:$PYTHONPATH; python ../bin/apx_udpsend.py --help
    :shell:
