@@ -4,6 +4,9 @@ Release notes
 =============
 
 
+`e9583aa <https://github.com/AstroPix/astropix-analysis/tree/e9583aa>`_
+-----------------------------------------------------------------------
+
 * New ``multicast`` and ``refresh`` arguments in the cli module.
 * ``to_bytes()`` and ``from_bytes()`` methods added to the readout classes
   to support monitoring over a network.
@@ -43,7 +46,6 @@ Issue(s) closed
   * https://github.com/AstroPix/astropix-analysis/pull/6
   * https://github.com/AstroPix/astropix-analysis/pull/5
   * https://github.com/AstroPix/astropix-analysis/pull/2
-
 
 
 `2063157 <https://github.com/AstroPix/astropix-analysis/tree/2063157>`_
