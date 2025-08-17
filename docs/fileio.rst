@@ -197,8 +197,10 @@ read back the table from file. In a nutshell, the following syntax should round-
 
 .. code-block:: python
 
+   from astropix_analysis.fileio import apx_process, apx_load
+
    # Convert a binary astropix file to HDF5...
-   output_file_path = apx_convert('path/to/apx/file', 'hdf5')
+   output_file_path = apx_process('path/to/apx/file', 'hdf5')
 
    # ... and read it back in the form of an astropy table (+ header)
    header, table = apx_load(output_file_path)
