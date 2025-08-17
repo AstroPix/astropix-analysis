@@ -18,8 +18,39 @@
 
 import numpy as np
 
-from astropix_analysis.hist import Histogram1d, Histogram2d, Matrix2d
+from astropix_analysis.hist import RunningStats, Histogram1d, Histogram2d, Matrix2d
 from astropix_analysis.plt_ import plt
+
+
+def test_running_stats():
+    """Test the RunningStats class.
+    """
+    # Create a couple of subsamples, and merge them.
+    sample1 = np.random.normal(size=1000)
+    sample2 = np.random.normal(size=1000)
+    sample = np.hstack([sample1, sample2])
+
+    # Update one value at a time.
+    stats = RunningStats()
+    for val in sample:
+        stats.update(val)
+    print(stats)
+    assert stats.n == sample.size
+    assert np.allclose(stats.mean, sample.mean())
+    assert np.allclose(stats.stdev, sample.std(ddof=1))
+
+    # Update passing the full arrays.
+    stats = RunningStats()
+    stats.update(sample1)
+    print(stats)
+    assert stats.n == sample1.size
+    assert np.allclose(stats.mean, sample1.mean())
+    assert np.allclose(stats.stdev, sample1.std(ddof=1))
+    stats.update(sample2)
+    print(stats)
+    assert stats.n == sample.size
+    assert np.allclose(stats.mean, sample.mean())
+    assert np.allclose(stats.stdev, sample.std(ddof=1))
 
 
 def test_hist1d(num_bins: int = 100, sample_size: int = 100000):
