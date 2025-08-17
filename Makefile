@@ -16,7 +16,8 @@ lint:
 		--disable c-extension-no-member \
 		--disable use-dict-literal \
 		--disable too-many-positional-arguments \
-		--disable too-many-public-methods
+		--disable too-many-public-methods \
+		--disable too-many-lines
 
 test:
 	python -m pytest tests -s

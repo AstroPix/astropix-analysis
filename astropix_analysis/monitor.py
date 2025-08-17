@@ -61,10 +61,16 @@ class AbstractMonitor(ABC):
         """
         self._receiver = MulticastReceiver(readout_class, group, port)
         self._readout_buffer = queue.Queue()
+        self._num_processed_readouts = 0
+        self._num_processed_hits = 0
+        self._msg_ax = None
+        self._axes = None
 
-    @staticmethod
-    def create_canvas(**kwargs):
+    def create_canvas(self, **kwargs):
         """Create the matplotlib canvas that will hold the monitoring plot.
+
+        Note we are adding a row at the very top of the subplots that we
+        are taking over to use it as a message dashboard.
 
         Arguments
         ---------
@@ -72,8 +78,34 @@ class AbstractMonitor(ABC):
             Any keyword argument accepted by ``plt.subplot()``.
         """
         plt.ion()
+        # Retrieve the number of rows and increase it by one unity.
+        nrows = kwargs.get('nrows', 1)
+        nrows += 1
+        kwargs['nrows'] = nrows
+        # Setup the height ratios.
+        ratios = kwargs.get('height_ratios')
+        height_ratios = [0.1]
+        if ratios is None:
+            height_ratios += [1.] * (nrows - 1)
+        else:
+            height_ratios += list(ratios)
+        kwargs['height_ratios'] = height_ratios
+        # Create the canvas.
         kwargs.setdefault('num', f'Astropix Monitor {__version__}')
-        return plt.subplots(**kwargs)
+        _, axes = plt.subplots(**kwargs)
+        # Switch the axes off for the first row of subplots.
+        for ax in axes[0]:
+            ax.axis('off')
+        # Get pointers to the relevant objects.
+        self._msg_ax = axes[0, 0]
+        self._axes = axes[1:]
+
+    def display_message(self, x, y, text, **kwargs) -> None:
+        """Display a message.
+        """
+        self._msg_ax.cla()
+        self._msg_ax.axis('off')
+        self._msg_ax.text(x, y, text, **kwargs)
 
     def _listen(self) -> None:
         """Listening function to be started on a separate thread.
@@ -127,6 +159,8 @@ class AbstractMonitor(ABC):
                     try:
                         readout = self._readout_buffer.get(timeout=read_timeout)
                         self.process_readout(readout)
+                        self._num_processed_readouts += 1
+                        self._num_processed_hits += len(readout.hits())
                     except queue.Empty:
                         continue
                 self.update_display()
@@ -170,8 +204,8 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
         super().__init__(AstroPix4Readout, group, port)
         self.tot_hist = Histogram1d(np.linspace(0., 500., 100), 'TOT [$\\mu$s]')
         self.hit_map = Matrix2d(self.NUM_COLS, self.NUM_ROWS)
-        _, axes_list = self.create_canvas(ncols=2, figsize=(12, 7), width_ratios=(1., 0.5))
-        self.tot_ax, self.hit_ax = axes_list
+        self.create_canvas(ncols=2, figsize=(12, 7), width_ratios=(1., 0.5))
+        self.tot_ax, self.hit_ax = self._axes[0]
 
     def process_readout(self, readout: AbstractAstroPixReadout):
         """Overloaded method.
@@ -183,6 +217,10 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
     def update_display(self) -> None:
         """Overloaded method.
         """
+        message = f'Connected to address {self._receiver.address()}\n'\
+                  f'{self._num_processed_readouts} readouts '\
+                  f'({self._num_processed_hits} hits) processed'
+        self.display_message(0., 0.9, message, ha='left', va='top')
         self.tot_ax.cla()
         self.tot_hist.draw(self.tot_ax)
         self.hit_ax.cla()
