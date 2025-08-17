@@ -38,7 +38,7 @@ class RunningStats:
         self._M2 = float(M2)
 
     @classmethod
-    def from_sample(cls, x: np.typing.ArrayLike) -> 'RunningStats':
+    def from_sample(cls, x: np.ndarray) -> 'RunningStats':
         """Create a RunningStats object from a data sample.
 
         This is much more efficient than processing the numbers in the sample
@@ -80,7 +80,7 @@ class RunningStats:
         self._M2 += other._M2 + delta * delta * (self._n - other.n) * other.n / self._n
         return self
 
-    def update(self, x: np.typing.ArrayLike) -> None:
+    def update(self, x: np.ndarray) -> None:
         """Update the running statistics with more data.
         """
         if isinstance(x, Number):
