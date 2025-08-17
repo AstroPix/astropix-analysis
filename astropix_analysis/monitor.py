@@ -27,8 +27,8 @@ from astropix_analysis import __version__
 from astropix_analysis.fmt import AbstractAstroPixReadout, AstroPix4Readout
 from astropix_analysis.hist import Histogram1d, Matrix2d
 from astropix_analysis.plt_ import plt
+from astropix_analysis import sock
 from astropix_analysis.sock import MulticastReceiver
-from astropix_analysis.sock import DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_PORT
 
 
 class AbstractMonitor(ABC):
@@ -55,8 +55,8 @@ class AbstractMonitor(ABC):
         The multicast port.
     """
 
-    def __init__(self, readout_class: type, group: str = DEFAULT_MULTICAST_GROUP,
-                 port: int = DEFAULT_MULTICAST_PORT) -> None:
+    def __init__(self, readout_class: type, group: str = sock.LOCAL_HOST,
+                 port: int = sock.DEFAULT_PORT) -> None:
         """Constructor.
         """
         self._receiver = MulticastReceiver(readout_class, group, port)
@@ -197,8 +197,7 @@ class AstroPix4SimpleMonitor(AbstractMonitor):
     NUM_COLS = 16
     NUM_ROWS = 35
 
-    def __init__(self, group: str = DEFAULT_MULTICAST_GROUP,
-                 port: int = DEFAULT_MULTICAST_PORT) -> None:
+    def __init__(self, group: str = sock.LOCAL_HOST, port: int = sock.DEFAULT_PORT) -> None:
         """Overloaded constructor.
         """
         super().__init__(AstroPix4Readout, group, port)

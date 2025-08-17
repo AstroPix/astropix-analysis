@@ -24,9 +24,10 @@ from astropix_analysis import logger
 from astropix_analysis.fmt import AbstractAstroPixReadout
 
 
+LOCAL_HOST = '127.0.0.1'
 # Note this is part of the administratively scoped block.
-DEFAULT_MULTICAST_GROUP = '239.1.1.1'
-DEFAULT_MULTICAST_PORT = 5007
+DEFAULT_GROUP = '239.1.1.1'
+DEFAULT_PORT = 5007
 
 
 class MulticastSocketBase(socket.socket):
@@ -42,8 +43,7 @@ class MulticastSocketBase(socket.socket):
         The multicast port.
     """
 
-    def __init__(self, group: str = DEFAULT_MULTICAST_GROUP,
-                 port: int = DEFAULT_MULTICAST_PORT) -> None:
+    def __init__(self, group: str = LOCAL_HOST, port: int = DEFAULT_PORT) -> None:
         """Constructor.
         """
         # Cache the address information
@@ -91,8 +91,8 @@ class MulticastSender(MulticastSocketBase):
         2 (allow routing to directly connected subnets), or >2 (allow more hops)
     """
 
-    def __init__(self, group: str = DEFAULT_MULTICAST_GROUP,
-                 port: int = DEFAULT_MULTICAST_PORT, ttl: int = 2) -> None:
+    def __init__(self, group: str = LOCAL_HOST, port: int = DEFAULT_PORT,
+                 ttl: int = 2) -> None:
         """Constructor.
         """
         super().__init__(group, port)
@@ -138,17 +138,20 @@ class MulticastReceiver(MulticastSocketBase):
 
     DEFAULT_MAX_PACKET_SIZE = 65535
 
-    def __init__(self, readout_class: type, group: str = DEFAULT_MULTICAST_GROUP,
-                 port: int = DEFAULT_MULTICAST_PORT) -> None:
+    def __init__(self, readout_class: type, group: str = LOCAL_HOST,
+                 port: int = DEFAULT_PORT) -> None:
         """Constructor.
         """
         self._readout_class = readout_class
         super().__init__(group, port)
-        # Bind to all interfaces on port
-        self.bind(('', port))
-        # Join the appropriate multicast group.
-        _mreq = struct.pack('4sl', socket.inet_aton(group), socket.INADDR_ANY)
-        self.set_option(socket.IP_ADD_MEMBERSHIP, _mreq)
+        if group == LOCAL_HOST:
+            self.bind(self._address)
+        else:
+            # Bind to all interfaces on port
+            self.bind(('', port))
+            # Join the appropriate multicast group.
+            _mreq = struct.pack('4sl', socket.inet_aton(group), socket.INADDR_ANY)
+            self.set_option(socket.IP_ADD_MEMBERSHIP, _mreq)
 
     def receive(self, max_size: int = DEFAULT_MAX_PACKET_SIZE) -> AbstractAstroPixReadout:
         """Wait for a packet to be available, read the binary data and
