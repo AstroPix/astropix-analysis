@@ -53,6 +53,11 @@ class MulticastSocketBase(socket.socket):
         # and IPPROTO_UDP specifies the UDP protocol.
         super().__init__(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
+    def address(self) -> tuple:
+        """Return the socket address.
+        """
+        return self._address
+
     def set_option(self, identifier: int, value: typing.Any) -> None:
         """Set a specific option for the socket.
 
