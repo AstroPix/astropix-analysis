@@ -609,6 +609,13 @@ class AbstractAstroPixReadout(ABC):
         """
         return np.count_nonzero(self._byte_mask == 0) == 0
 
+    def hits(self) -> list:
+        """Return the decoded hits.
+        """
+        if not self.decoded():
+            self.decode()
+        return self._hits
+
     @classmethod
     def uid(cls) -> int:
         """Return the unique identifier for the readout class.
@@ -842,7 +849,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
         # If the event has been already decoded, return the list of hits that
         # has been previously calculated.
-        if self._decoded:
+        if self.decoded():
             return self._hits
 
         # Ready to start---the cursor indicates the position within the readout.

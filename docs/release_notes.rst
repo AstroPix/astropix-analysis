@@ -4,6 +4,15 @@ Release notes
 =============
 
 
+* Online monitor change to bind to localhost and exchange packets locally,
+  so that the thing also works when the computer is not connected to the network.
+* Message display added to the base monitor class.
+* New ``RunningStats`` added in the ``hist`` module.
+
+Merging pull requests
+  * https://github.com/AstroPix/astropix-analysis/pull/18
+
+
 `e9583aa <https://github.com/AstroPix/astropix-analysis/tree/e9583aa>`_
 -----------------------------------------------------------------------
 

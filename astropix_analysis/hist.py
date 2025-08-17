@@ -17,10 +17,115 @@
 """
 
 from abc import ABC, abstractmethod
+import math
+from numbers import Number
 
 import numpy as np
 
 from astropix_analysis.plt_ import plt, setup_axes, matplotlib
+
+
+class RunningStats:
+    """Online mean and standard deviation using Welford's algorithm.
+    """
+
+    def __init__(self, n: int = 0, mean: float = 0., M2: float = 0.) -> None:
+        """Constructor.
+        """
+        # pylint: disable=invalid-name
+        self._n = int(n)
+        self._mean = float(mean)
+        self._M2 = float(M2)
+
+    @classmethod
+    def from_sample(cls, x: np.ndarray) -> 'RunningStats':
+        """Create a RunningStats object from a data sample.
+
+        This is much more efficient than processing the numbers in the sample
+        one by one because it is tranforming the input sample into a numpy array
+        and doing the calculation of the sample average and variance in C.
+
+        Arguments
+        ---------
+        x : array_like
+            The input sample. This is generally a 1-dimensional numpy array.
+            Lists, tuples and iterables in general will be converted to a numpy
+            array if possible. Multidimensional arrays will be flattened.
+        """
+        x = np.asarray(x).flatten()
+        return cls(x.size, x.mean(), x.var() * x.size)
+
+    def merge(self, other: 'RunningStats') -> 'RunningStats':
+        """Merge another RunningStat object into the current one.
+
+        Note this happens in place, and no new object is created. A reference
+        to the original object is returned, so that multiple calls can be
+        conveniently chained.
+        """
+        # pylint: disable=protected-access
+        # This will only work if other is another RunningStats object,
+        if not isinstance(other, RunningStats):
+            raise TypeError(f'{other} is not a RunningStats object')
+        # If the other running stats is empty, there is nothing to do.
+        if len(other) == 0:
+            return self
+        # If the original object is empty, then we just copy the other over.
+        if len(self) == 0:
+            self._n, self._mean, self._M2 = other.n, other.mean, other._M2
+            return self
+        # And if we made it to this point, we need the fully-fledged combination.
+        self._n += other.n
+        delta = other.mean - self._mean
+        self._mean += delta * other.n / self._n
+        self._M2 += other._M2 + delta * delta * (self._n - other.n) * other.n / self._n
+        return self
+
+    def update(self, x: np.ndarray) -> None:
+        """Update the running statistics with more data.
+        """
+        if isinstance(x, Number):
+            # Good old plain Welford formula. Note this is exactly the same as
+            # the merge formula, with other.n = 1 and other.mean = x.
+            self._n += 1
+            delta = x - self._mean
+            self._mean += delta / self._n
+            self._M2 += delta * delta * (self._n - 1) / self._n
+        else:
+            self.merge(RunningStats.from_sample(x))
+
+    def __len__(self) -> int:
+        """Return the sample size.
+        """
+        return self._n
+
+    @property
+    def n(self) -> int:
+        """Return the sample size.
+        """
+        return self._n
+
+    @property
+    def mean(self) -> float:
+        """Return the current mean of the sample.
+        """
+        return self._mean if self._n > 0 else float('nan')
+
+    @property
+    def variance(self) -> float:
+        """Return the (unbiased) sample variance.
+        """
+        return self._M2 / (self._n - 1) if self._n > 1 else float('nan')
+
+    @property
+    def stdev(self) -> float:
+        """Return the standard deviation of the sample.
+        """
+        return math.sqrt(self.variance) if self._n > 1 else float('nan')
+
+    def __repr__(self):
+        """String formatting.
+        """
+        return (f'RunningStats(n={self._n}, mean={self.mean}, stdev={self.stdev})')
 
 
 class InvalidShapeError(RuntimeError):
