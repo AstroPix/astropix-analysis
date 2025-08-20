@@ -56,9 +56,9 @@ def _create_hit(text_data: str, hit_class: type = AstroPix4Hit):
 def _sample_readout(sample_index: int) -> AstroPix4Readout:
     """Read one of the sample readout data and turn it into an actual readout object.
 
-    Note this assigns by default a readout_id of zero and a timestamp of zero.
+    Note this assigns by default a readout_id of zero and a wall_timestamp of zero.
     """
-    return AstroPix4Readout(SAMPLE_READOUT_DATA[sample_index], readout_id=0, timestamp=0)
+    return AstroPix4Readout(SAMPLE_READOUT_DATA[sample_index], readout_id=0, wall_timestamp=0)
 
 
 # And these are the two hits in the data stream

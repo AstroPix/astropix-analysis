@@ -187,7 +187,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
                 except ValueError as exception:
                     logger.warning(f'{exception} for readout {readout_id}')
                     continue
-                readout = AstroPix4Readout(readout_data, readout_id, timestamp=0)
+                readout = AstroPix4Readout(readout_data, readout_id, wall_timestamp=0)
                 readout.write(output_file)
                 num_readouts += 1
     if num_readouts == 0:

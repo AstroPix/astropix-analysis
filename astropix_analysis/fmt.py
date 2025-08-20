@@ -144,7 +144,7 @@ class AbstractAstroPixHit(ABC):
     _ATTR_TYPE_DICT = {}
 
     @abstractmethod
-    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+    def __init__(self, data: bytearray, readout_id: int, wall_timestamp: int,
                  decoding_order: int) -> None:
         """Constructor.
         """
@@ -152,7 +152,7 @@ class AbstractAstroPixHit(ABC):
         # bytearray object into a bytes object.
         self._data = bytes(data)
         self.readout_id = readout_id
-        self.timestamp = timestamp
+        self.wall_timestamp = wall_timestamp
         self.decoding_order = decoding_order
         # Build a bit pattern to extract the fields and loop over the hit fields
         # to set all the class members.
@@ -268,7 +268,7 @@ class AstroPix3Hit(AbstractAstroPixHit):
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
         'readout_id': (None, np.uint32),
-        'timestamp': (None, np.uint64),
+        'wall_timestamp': (None, np.uint64),
         'decoding_order': (None, np.uint8),
         'column': (8, np.uint8),
         'location': (slice(10, 16), np.uint8),
@@ -280,12 +280,12 @@ class AstroPix3Hit(AbstractAstroPixHit):
 
     CLOCK_CYCLES_PER_US = 200.
 
-    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+    def __init__(self, data: bytearray, readout_id: int, wall_timestamp: int,
                  decoding_order: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
-        super().__init__(data, readout_id, timestamp, decoding_order)
+        super().__init__(data, readout_id, wall_timestamp, decoding_order)
         # Calculate the TOT in physical units.
         self.tot_dec = (self.tot_msb << 8) + self.tot_lsb
         self.tot_us = self.tot_dec / self.CLOCK_CYCLES_PER_US
@@ -302,7 +302,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
         'readout_id': (None, np.uint32),
-        'timestamp': (None, np.uint64),
+        'wall_timestamp': (None, np.uint64),
         'decoding_order': (None, np.uint8),
         'row': (slice(8, 13), np.uint8),
         'column': (slice(13, 18), np.uint8),
@@ -322,12 +322,12 @@ class AstroPix4Hit(AbstractAstroPixHit):
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+    def __init__(self, data: bytearray, readout_id: int, wall_timestamp: int,
                  decoding_order: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
-        super().__init__(data, readout_id, timestamp, decoding_order)
+        super().__init__(data, readout_id, wall_timestamp, decoding_order)
         # Calculate the values of the two timestamps in clock cycles.
         self.ts_dec1 = self._compose_ts(self.ts_coarse1, self.ts_fine1)
         self.ts_dec2 = self._compose_ts(self.ts_coarse2, self.ts_fine2)
@@ -565,7 +565,7 @@ class AbstractAstroPixReadout(ABC):
     readout_id : int
         A sequential id for the readout, assigned by the host DAQ machine.
 
-    timestamp : int
+    wall_timestamp : int
         A timestamp for the readout, assigned by the host DAQ machine, in ns since
         the epoch, from time.time_ns().
     """
@@ -593,13 +593,13 @@ class AbstractAstroPixReadout(ABC):
     _LENGTH_FMT = '<L'
 
     def __init__(self, readout_data: bytearray, readout_id: int,
-                 timestamp: int = None) -> None:
+                 wall_timestamp: int = None) -> None:
         """Constructor.
         """
-        # If the timestamp is None, automatically latch the system time.
-        # Note this is done first in order to latch the timestamp as close as
+        # If the wall_timestamp is None, automatically latch the system time.
+        # Note this is done first in order to latch the wall_timestamp as close as
         # possible to the actual readout.
-        self.timestamp = self.latch_ns() if timestamp is None else timestamp
+        self.wall_timestamp = self.latch_ns() if wall_timestamp is None else wall_timestamp
         # Strip all the trailing padding bytes from the input bytearray object
         # and turn it into a bytes object to make it immutable.
         self._readout_data = bytes(readout_data.rstrip(self.PADDING_BYTE))
@@ -636,7 +636,7 @@ class AbstractAstroPixReadout(ABC):
         if reverse:
             hit_data = reverse_bit_order(hit_data)
         decoding_order = len(self._hits)
-        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp, decoding_order)
+        hit = self.HIT_CLASS(hit_data, self.readout_id, self.wall_timestamp, decoding_order)
         self._hits.append(hit)
 
     def decode(self, extra_bytes: bytes = None):  # noqa: C901
@@ -863,7 +863,7 @@ class AbstractAstroPixReadout(ABC):
         """
         parts = [self._HEADER,
                  struct.pack(self._READOUT_ID_FMT, self.readout_id),
-                 struct.pack(self._TIMESTAMP_FMT, self.timestamp),
+                 struct.pack(self._TIMESTAMP_FMT, self.wall_timestamp),
                  struct.pack(self._LENGTH_FMT, len(self._readout_data)),
                  self._readout_data
                  ]
@@ -891,14 +891,14 @@ class AbstractAstroPixReadout(ABC):
         # Read all the fields.
         cursor = cls._HEADER_SIZE
         readout_id, cursor = cls._unpack_slice(cls._READOUT_ID_FMT, data, cursor)
-        timestamp, cursor = cls._unpack_slice(cls._TIMESTAMP_FMT, data, cursor)
+        wall_timestamp, cursor = cls._unpack_slice(cls._TIMESTAMP_FMT, data, cursor)
         _length, cursor = cls._unpack_slice(cls._LENGTH_FMT, data, cursor)
         data = data[cursor:]
         # Make sure the remaining part of the binary data matches our expectations
         # in terms of its size.
         if len(data) != _length:
             raise RuntimeError(f'Size mismatch: {len(data)} bytes remaining, expected {_length}')
-        return cls(data, readout_id, timestamp)
+        return cls(data, readout_id, wall_timestamp)
 
     def write(self, output_file: typing.BinaryIO) -> None:
         """Write the complete readout to a binary file.
@@ -936,9 +936,9 @@ class AbstractAstroPixReadout(ABC):
             raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
         # Go ahead, read all the fields, and create the AstroPix4Readout object.
         readout_id = cls._read_and_unpack(input_file, cls._READOUT_ID_FMT)
-        timestamp = cls._read_and_unpack(input_file, cls._TIMESTAMP_FMT)
+        wall_timestamp = cls._read_and_unpack(input_file, cls._TIMESTAMP_FMT)
         data = input_file.read(cls._read_and_unpack(input_file, cls._LENGTH_FMT))
-        return cls(data, readout_id, timestamp)
+        return cls(data, readout_id, wall_timestamp)
 
     def hex(self) -> str:
         """Return a string with the hexadecimal representation of the underlying
@@ -976,7 +976,7 @@ class AbstractAstroPixReadout(ABC):
         """String formatting.
         """
         return f'{self.__class__.__name__}({len(self._readout_data)} bytes, ' \
-               f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
+               f'readout_id = {self.readout_id}, wall_timestamp = {self.wall_timestamp} ns)'
 
 
 @readoutclass
