@@ -589,7 +589,7 @@ class AbstractAstroPixReadout(ABC):
 
     # Basic bookkeeping for the additional fields assigned by the host machine.
     _READOUT_ID_FMT = '<L'
-    _TIMESTAMP_FMT = '<Q'
+    _WALL_TIMESTAMP_FMT = '<Q'
     _LENGTH_FMT = '<L'
 
     def __init__(self, readout_data: bytearray, readout_id: int,
@@ -863,7 +863,7 @@ class AbstractAstroPixReadout(ABC):
         """
         parts = [self._HEADER,
                  struct.pack(self._READOUT_ID_FMT, self.readout_id),
-                 struct.pack(self._TIMESTAMP_FMT, self.wall_timestamp),
+                 struct.pack(self._WALL_TIMESTAMP_FMT, self.wall_timestamp),
                  struct.pack(self._LENGTH_FMT, len(self._readout_data)),
                  self._readout_data
                  ]
@@ -891,7 +891,7 @@ class AbstractAstroPixReadout(ABC):
         # Read all the fields.
         cursor = cls._HEADER_SIZE
         readout_id, cursor = cls._unpack_slice(cls._READOUT_ID_FMT, data, cursor)
-        wall_timestamp, cursor = cls._unpack_slice(cls._TIMESTAMP_FMT, data, cursor)
+        wall_timestamp, cursor = cls._unpack_slice(cls._WALL_TIMESTAMP_FMT, data, cursor)
         _length, cursor = cls._unpack_slice(cls._LENGTH_FMT, data, cursor)
         data = data[cursor:]
         # Make sure the remaining part of the binary data matches our expectations
@@ -936,7 +936,7 @@ class AbstractAstroPixReadout(ABC):
             raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
         # Go ahead, read all the fields, and create the AstroPix4Readout object.
         readout_id = cls._read_and_unpack(input_file, cls._READOUT_ID_FMT)
-        wall_timestamp = cls._read_and_unpack(input_file, cls._TIMESTAMP_FMT)
+        wall_timestamp = cls._read_and_unpack(input_file, cls._WALL_TIMESTAMP_FMT)
         data = input_file.read(cls._read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, wall_timestamp)
 
