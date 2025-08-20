@@ -258,7 +258,7 @@ class AbstractAstroPixHit(ABC):
 
 
 @hitclass
-class AstroPix3Hit(AbstractAstroPixHit):
+class AstroPix3HalfHit(AbstractAstroPixHit):
 
     """Class describing an AstroPix3 (half) hit.
     """
@@ -985,7 +985,7 @@ class AstroPix3Readout(AbstractAstroPixReadout):
     """Class describing an AstroPix 3 readout.
     """
 
-    HIT_CLASS = AstroPix3Hit
+    HIT_CLASS = AstroPix3HalfHit
     _UID = 3000
 
 

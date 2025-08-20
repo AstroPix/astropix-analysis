@@ -20,7 +20,7 @@
 import pytest
 
 from astropix_analysis.fmt import BitPattern, AstroPix4Readout, AbstractAstroPixReadout, \
-     AbstractAstroPixHit, AstroPix3Hit, AstroPix4Hit, uid_to_readout_class, Decoding, \
+     AbstractAstroPixHit, AstroPix3HalfHit, AstroPix4Hit, uid_to_readout_class, Decoding, \
      DecodingStatus, readoutclass
 
 
@@ -172,7 +172,7 @@ def test_hit_start_byte():
     """Test some of the start-byte machinery.
     """
     # pylint: disable=protected-access
-    assert AstroPix3Hit.DEFAULT_START_BYTE == 0x20
-    assert AstroPix3Hit._PAYLOAD == 4
+    assert AstroPix3HalfHit.DEFAULT_START_BYTE == 0x20
+    assert AstroPix3HalfHit._PAYLOAD == 4
     assert AstroPix4Hit.DEFAULT_START_BYTE == 0xe0
     assert AstroPix4Hit._PAYLOAD == 7
