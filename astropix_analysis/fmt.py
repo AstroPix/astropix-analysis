@@ -80,6 +80,10 @@ def hitclass(cls: type) -> type:
     type is created, as opposed to do it over and over again each time an instance
     of the class is created. More specifically:
 
+    * _PAYLOAD is the number of bytes in the hit, header excluded (i.e., _SIZE - 1);
+    * _PAYLOAD_REVERSE is the three-bit complement of _PAYLOAD, which is used to
+      test whether a given byte is a valid start byte for a hit;
+    * DEFAULT_START_BYTE is the starting byte for a hit with chip_id 0;
     * ``ATTRIBUTE_NAMES`` is a tuple containing all the hit field names that can be
       used, e.g., for printing out the hit itself;
     * ``_ATTR_IDX_DICT`` is a dictionary mapping the name of each attribute to
@@ -91,6 +95,9 @@ def hitclass(cls: type) -> type:
       (e.g., in HDF5 or FITS format).
     """
     # pylint: disable=protected-access
+    cls._PAYLOAD = cls._SIZE - 1
+    cls._REVERSED_PAYLOAD = int(f'{cls._PAYLOAD:03b}'[::-1], 2)
+    cls.DEFAULT_START_BYTE = cls._REVERSED_PAYLOAD << 5
     cls.ATTRIBUTE_NAMES = tuple(cls._LAYOUT.keys())
     cls._ATTR_IDX_DICT = {name: idx for name, (idx, _) in cls._LAYOUT.items() if idx is not None}
     cls._ATTR_TYPE_DICT = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
@@ -127,18 +134,26 @@ class AbstractAstroPixHit(ABC):
     _SIZE = 0
     _LAYOUT = {}
     # ... while these get populated automatically once the subclass is decorated
-    # with @hitclass (and still we initialize them here to None to make the linters happy.)
+    # with @hitclass (and still we initialize them here to None to make the linters
+    # happy.)
+    _PAYLOAD = 0
+    _REVERSED_PAYLOAD = 0
+    DEFAULT_START_BYTE = 0
     ATTRIBUTE_NAMES = ()
     _ATTR_IDX_DICT = {}
     _ATTR_TYPE_DICT = {}
 
     @abstractmethod
-    def __init__(self, data: bytearray) -> None:
+    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+                 decoding_order: int) -> None:
         """Constructor.
         """
         # Since we don't need the underlying bit pattern to be mutable, turn the
         # bytearray object into a bytes object.
         self._data = bytes(data)
+        self.readout_id = readout_id
+        self.timestamp = timestamp
+        self.decoding_order = decoding_order
         # Build a bit pattern to extract the fields and loop over the hit fields
         # to set all the class members.
         bit_pattern = BitPattern(self._data)
@@ -161,6 +176,29 @@ class AbstractAstroPixHit(ABC):
             mask >>= 1
             decimal ^= mask  # XOR each shifted bit
         return decimal
+
+    @classmethod
+    def is_valid_start_byte(cls, byte: bytes) -> bool:
+        """Return True if the byte is a valid start byte for the hit.
+
+        The start byte of a hit contains the chip ID, packed within the
+        legth of the hit payload (i.e., the size of the hit excluding the header
+        itself). More specifically, the three most significant bits represent the
+        payload, whether the five least significant bits represent the chip ID.
+        For instance:
+
+        * for AstroPix3 the hit size is 5, the payload is 4, and the start byte
+          of the hit has the form 0b100xxxxx;
+        * for AstroPix4 the hit size is 8, the payload is 7, and the start byte
+          of the hit has the form 0b111xxxxx;
+
+        .. note::
+          This assume the byte is before the bit order is reversed, i.e., this operates
+          in the space of the data stream from the Nexys board. The rational for
+          this is that all the error checking happens at the readout level, before
+          the bit order is reversed and before the hit is even created.
+        """
+        return ord(byte) >> 5 == cls._REVERSED_PAYLOAD
 
     @classmethod
     def empty_table(cls, attribute_names: list[str] = None) -> astropy.table.Table:
@@ -222,20 +260,18 @@ class AbstractAstroPixHit(ABC):
 @hitclass
 class AstroPix3Hit(AbstractAstroPixHit):
 
-    """Class describing an AstroPix3 hit.
-
-    .. warning::
-
-        This is copied from decode.py and totally untested.
+    """Class describing an AstroPix3 (half) hit.
     """
 
     _SIZE = 5
     _LAYOUT = {
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
+        'readout_id': (None, np.uint32),
+        'timestamp': (None, np.uint64),
+        'decoding_order': (None, np.uint8),
         'column': (8, np.uint8),
         'location': (slice(10, 16), np.uint8),
-        'timestamp': (slice(16, 24), np.uint8),
         'tot_msb': (slice(28, 32), np.uint8),
         'tot_lsb': (slice(32, 40), np.uint8),
         'tot_dec': (None, np.uint16),
@@ -244,11 +280,12 @@ class AstroPix3Hit(AbstractAstroPixHit):
 
     CLOCK_CYCLES_PER_US = 200.
 
-    def __init__(self, data: bytearray) -> None:
+    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+                 decoding_order: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
-        super().__init__(data)
+        super().__init__(data, readout_id, timestamp, decoding_order)
         # Calculate the TOT in physical units.
         self.tot_dec = (self.tot_msb << 8) + self.tot_lsb
         self.tot_us = self.tot_dec / self.CLOCK_CYCLES_PER_US
@@ -290,8 +327,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
         """Constructor.
         """
         # pylint: disable=no-member
-        super().__init__(data)
-        self.decoding_order = decoding_order
+        super().__init__(data, readout_id, timestamp, decoding_order)
         # Calculate the values of the two timestamps in clock cycles.
         self.ts_dec1 = self._compose_ts(self.ts_coarse1, self.ts_fine1)
         self.ts_dec2 = self._compose_ts(self.ts_coarse2, self.ts_fine2)
@@ -300,8 +336,6 @@ class AstroPix4Hit(AbstractAstroPixHit):
             self.ts_dec2 += self.CLOCK_ROLLOVER
         # Calculate the actual TOT in us.
         self.tot_us = (self.ts_dec2 - self.ts_dec1) / self.CLOCK_CYCLES_PER_US
-        self.readout_id = readout_id
-        self.timestamp = timestamp
 
     @staticmethod
     def _compose_ts(ts_coarse: int, ts_fine: int) -> int:
@@ -577,11 +611,173 @@ class AbstractAstroPixReadout(ABC):
         self._byte_mask = np.zeros(len(self._readout_data), dtype=int)
         self._hits = []
 
-    @abstractmethod
-    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
-        """Placeholder for the decoding function---this needs to be reimplemented
-        in derived classes.
+    @classmethod
+    def is_valid_start_byte(cls, byte: bytes) -> bool:
+        """Return True if the byte is a valid start byte for the relevant hit structure.
+
+        .. warning::
+          We have an amusing edge case, here, in that 0xff is both the padding byte
+          and a valid start byte. We should probably put some thought into this, but
+          we are tentatively saying that 0xff is *not* a valid start byte for a hit,
+          in order to keep the decoding as simple as possible.
         """
+        return byte != cls.PADDING_BYTE and cls.HIT_CLASS.is_valid_start_byte(byte)
+
+    @staticmethod
+    def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
+        """Generic error message for an invalid start byte.
+        """
+        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
+
+    def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
+        """Add a hit to readout.
+        """
+        # pylint: disable=not-callable
+        if reverse:
+            hit_data = reverse_bit_order(hit_data)
+        decoding_order = len(self._hits)
+        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp, decoding_order)
+        self._hits.append(hit)
+
+    def decode(self, extra_bytes: bytes = None):  # noqa: C901
+        """Decoding function.
+        """
+        # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
+        # If the event has been already decoded, return the list of hits that
+        # has been previously calculated.
+        if self.decoded():
+            return self._hits
+
+        # Ready to start---the cursor indicates the position within the readout.
+        self._decoded = True
+        cursor = 0
+
+        # Skip the initial idle and padding bytes.
+        # (In principle we would only expect idle bytes, here, but it is a
+        # known fact that we occasionally get padding bytes interleaved with
+        # them, especially when operating at high rate.)
+        while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
+            self._byte_mask[cursor] = ByteType.IDLE
+            cursor += 1
+
+        # Look at the first legitimate hit byte---if it is not a valid hit start
+        # byte, then we might need to piece the first few bytes of the readout
+        # with the leftover of the previous readout.
+        byte = self._readout_data[cursor:cursor + 1]
+        if not self.is_valid_start_byte(byte):
+            logger.warning(self._invalid_start_byte_msg(byte, cursor))
+            offset = 1
+            # Move forward until we find the next valid start byte.
+            while not self.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):  # noqa: E501
+                offset += 1
+            # Note we have to strip all the idle bytes at the end, if any.
+            # Also note the Jedi trick here: we first set all the bytes in the
+            # portion to idle...
+            self._byte_mask[cursor:cursor + offset] = ByteType.IDLE
+            orphan_bytes = self._readout_data[cursor:cursor + offset].rstrip(self.IDLE_BYTE)
+            # ... and then we override the bit mask in the actual orphan part.
+            self._byte_mask[cursor:cursor + len(orphan_bytes)] = ByteType.ORPHAN
+            logger.info(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
+            if extra_bytes is not None:
+                logger.info('Trying to re-assemble the hit across readouts...')
+                data = extra_bytes + orphan_bytes
+                if len(data) == self.HIT_CLASS._SIZE:
+                    logger.info('Total size matches---we got a hit!')
+                    self._add_hit(data)
+                    self._decoding_status.set(Decoding.ORPHAN_BYTES_MATCHED)
+                else:
+                    self._decoding_status.set(Decoding.ORPHAN_BYTES_DROPPED)
+            else:
+                self._decoding_status.set(Decoding.ORPHAN_BYTES_NOT_USED)
+            cursor += offset
+
+        # And now we can proceed with business as usual.
+        while cursor < len(self._readout_data):
+            # Skip all the idle bytes and the padding bytes that we encounter.
+            # (In principle we would only expect idle bytes, here, but it is a
+            # known fact that we occasionally get padding bytes interleaved with
+            # them, especially when operating at high rate.)
+            while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
+                self._byte_mask[cursor] = ByteType.IDLE
+                cursor += 1
+
+            # Check if we are at the end of the readout.
+            if cursor == len(self._readout_data):
+                if not self.all_bytes_visited():
+                    self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
+                return self._hits
+
+            # Handle the case where the last hit is truncated in the original readout data.
+            # If the start byte is valid we put the thing aside in the extra_bytes class
+            # member so that, potentially, we have the data available to be matched
+            # with the beginning of the next readout.
+            if cursor + self.HIT_CLASS._SIZE >= len(self._readout_data):
+                data = self._readout_data[cursor:]
+                self._byte_mask[cursor:] = ByteType.EXTRA
+                logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
+                               f'({data}) at the end of the readout.')
+                if self.is_valid_start_byte(data[0:1]):
+                    self._byte_mask[cursor] = ByteType.HIT_START
+                    logger.info('Valid start byte, extra bytes set aside for next readout!')
+                    self._extra_bytes = data
+                    self._decoding_status.set(Decoding.VALID_EXTRA_BYTES)
+                else:
+                    self._decoding_status.set(Decoding.INVALID_EXTRA_BYTES)
+                break
+
+            byte = self._readout_data[cursor:cursor + 1]
+            # At this point we do expect a valid start hit for the next event...
+            if not self.is_valid_start_byte(byte):
+                # ... and if this is not the case, we go forward until we find the
+                # next hit start, dropping all the bytes in between.
+                logger.warning(self._invalid_start_byte_msg(byte, cursor))
+                while not self.is_valid_start_byte(self._readout_data[cursor:cursor + 1]):
+                    self._byte_mask[cursor] = ByteType.DROPPED
+                    cursor += 1
+
+            # We have a tentative 8-byte word, with the correct start byte,
+            # representing a hit.
+            data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
+
+            # Loop over bytes 1--7 (included) in the word to see whether there is
+            # any additional valid start byte in the hit.
+            for offset in range(1, len(data)):
+                byte = data[offset:offset + 1]
+                if self.is_valid_start_byte(byte):
+                    # At this point we have really two cases:
+                    # 1 - this is a legitimate hit containing a start byte by chance;
+                    # 2 - this is a truncated hit, and the start byte signals the next hit.
+                    # I don't think there is any way we can get this right 100% of the
+                    # times, but a sensible thing to try is to move forward by the hit size,
+                    # skip all the subsequent idle bytes and see if the next thing in line
+                    # is a valid start byte. In that situation we are probably
+                    # dealing with case 1.
+                    forward_cursor = cursor + self.HIT_CLASS._SIZE
+                    while self._readout_data[forward_cursor:forward_cursor + 1] == self.IDLE_BYTE:
+                        forward_cursor += 1
+                    if forward_cursor < len(self._readout_data):
+                        byte = self._readout_data[forward_cursor:forward_cursor + 1]
+                        if not self.is_valid_start_byte(byte):
+                            # Here we are really in case 2, and there is not other thing
+                            # we can do except dropping the hit.
+                            logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')  # noqa: E501
+                            logger.warning(f'Dropping incomplete hit {data[:offset]}')
+                            self._decoding_status.set(Decoding.INCOMPLETE_HIT_DROPPED)
+                            self._byte_mask[cursor:cursor + offset] = ByteType.DROPPED
+                            cursor = cursor + offset
+                            data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
+
+            # And this should be by far the most common case.
+            self._add_hit(data)
+            self._byte_mask[cursor:cursor + 1] = ByteType.HIT_START
+            self._byte_mask[cursor + 1:cursor + self.HIT_CLASS._SIZE] = ByteType.HIT
+            cursor += self.HIT_CLASS._SIZE
+            while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
+                self._byte_mask[cursor] = ByteType.IDLE
+                cursor += 1
+        if not self.all_bytes_visited():
+            self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
+        return self._hits
 
     def data(self) -> bytes:
         """Return the underlying binary data.
@@ -744,18 +940,6 @@ class AbstractAstroPixReadout(ABC):
         data = input_file.read(cls._read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(data, readout_id, timestamp)
 
-    def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
-        """Add a hit to readout.
-
-        This will be typically called during the readout decoding.
-        """
-        # pylint: disable=not-callable
-        if reverse:
-            hit_data = reverse_bit_order(hit_data)
-        decoding_order = len(self._hits)
-        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp, decoding_order)
-        self._hits.append(hit)
-
     def hex(self) -> str:
         """Return a string with the hexadecimal representation of the underlying
         binary data (two hexadecimal digits per byte).
@@ -796,6 +980,16 @@ class AbstractAstroPixReadout(ABC):
 
 
 @readoutclass
+class AstroPix3Readout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 3 readout.
+    """
+
+    HIT_CLASS = AstroPix3Hit
+    _UID = 3000
+
+
+@readoutclass
 class AstroPix4Readout(AbstractAstroPixReadout):
 
     """Class describing an AstroPix 4 readout.
@@ -803,188 +997,9 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
     HIT_CLASS = AstroPix4Hit
     _UID = 4000
-    DEFAULT_START_BYTE = bytes.fromhex('e0')
-
-    @staticmethod
-    def is_valid_start_byte(byte: bytes) -> bool:
-        """Return True if the byte is a valid start byte for Astropix4 hit.
-
-        This, effectively, entiles to make sure that the byte is of the form `111xxxxx`,
-        where the 5 least significant bits are the chip id.
-
-        .. note::
-          This assume the byte is before the bit order is reverse, i.e., this operates
-          in the space of the data stream from the Nexys board. The rational for
-          this is that all the error checking happens at the readout level, before
-          the bit order is reversed and before the hit is even created.
-
-        .. warning::
-          We have an amusing edge case, here, in that 0xff is both the padding byte
-          and a valid start byte for Astropix 4. We should probably put some thought
-          into this, but we are tentatively saying that 0xff is *not* a valid
-          start byte for a hit, in order to keep the decoding as simple as possible.
-        """
-        return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
-
-    @staticmethod
-    def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
-        """Generic error message for an invalid start byte.
-        """
-        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
-
-    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:  # noqa: C901
-        """Astropix4 decoding function.
-
-        .. note::
-          Note that you always need to addess single bytes in the data stream with
-          a proper slice, as opposed to an integer, i.e., `data[i:i + 1]` instead
-          of `data[i]`, because Python will return an integer, otherwise.
-
-        Arguments
-        ---------
-        extra_bytes : bytes
-            Optional extra bytes from the previous readout that might be re-assembled
-            together with the beginning of this readout.
-        """
-        # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
-        # If the event has been already decoded, return the list of hits that
-        # has been previously calculated.
-        if self.decoded():
-            return self._hits
-
-        # Ready to start---the cursor indicates the position within the readout.
-        self._decoded = True
-        cursor = 0
-
-        # Skip the initial idle and padding bytes.
-        # (In principle we would only expect idle bytes, here, but it is a
-        # known fact that we occasionally get padding bytes interleaved with
-        # them, especially when operating at high rate.)
-        while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
-            self._byte_mask[cursor] = ByteType.IDLE
-            cursor += 1
-
-        # Look at the first legitimate hit byte---if it is not a valid hit start
-        # byte, then we might need to piece the first few bytes of the readout
-        # with the leftover of the previous readout.
-        byte = self._readout_data[cursor:cursor + 1]
-        if not self.is_valid_start_byte(byte):
-            logger.warning(self._invalid_start_byte_msg(byte, cursor))
-            offset = 1
-            # Move forward until we find the next valid start byte.
-            while not self.is_valid_start_byte(self._readout_data[cursor + offset:cursor + offset + 1]):  # noqa: E501
-                offset += 1
-            # Note we have to strip all the idle bytes at the end, if any.
-            # Also note the Jedi trick here: we first set all the bytes in the
-            # portion to idle...
-            self._byte_mask[cursor:cursor + offset] = ByteType.IDLE
-            orphan_bytes = self._readout_data[cursor:cursor + offset].rstrip(self.IDLE_BYTE)
-            # ... and then we override the bit mask in the actual orphan part.
-            self._byte_mask[cursor:cursor + len(orphan_bytes)] = ByteType.ORPHAN
-            logger.info(f'{len(orphan_bytes)} orphan bytes found ({orphan_bytes})...')
-            if extra_bytes is not None:
-                logger.info('Trying to re-assemble the hit across readouts...')
-                data = extra_bytes + orphan_bytes
-                if len(data) == self.HIT_CLASS._SIZE:
-                    logger.info('Total size matches---we got a hit!')
-                    self._add_hit(data)
-                    self._decoding_status.set(Decoding.ORPHAN_BYTES_MATCHED)
-                else:
-                    self._decoding_status.set(Decoding.ORPHAN_BYTES_DROPPED)
-            else:
-                self._decoding_status.set(Decoding.ORPHAN_BYTES_NOT_USED)
-            cursor += offset
-
-        # And now we can proceed with business as usual.
-        while cursor < len(self._readout_data):
-            # Skip all the idle bytes and the padding bytes that we encounter.
-            # (In principle we would only expect idle bytes, here, but it is a
-            # known fact that we occasionally get padding bytes interleaved with
-            # them, especially when operating at high rate.)
-            while self._readout_data[cursor:cursor + 1] in [self.IDLE_BYTE, self.PADDING_BYTE]:
-                self._byte_mask[cursor] = ByteType.IDLE
-                cursor += 1
-
-            # Check if we are at the end of the readout.
-            if cursor == len(self._readout_data):
-                if not self.all_bytes_visited():
-                    self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
-                return self._hits
-
-            # Handle the case where the last hit is truncated in the original readout data.
-            # If the start byte is valid we put the thing aside in the extra_bytes class
-            # member so that, potentially, we have the data available to be matched
-            # with the beginning of the next readout.
-            if cursor + self.HIT_CLASS._SIZE >= len(self._readout_data):
-                data = self._readout_data[cursor:]
-                self._byte_mask[cursor:] = ByteType.EXTRA
-                logger.warning(f'Found {len(data)} byte(s) of truncated hit data '
-                               f'({data}) at the end of the readout.')
-                if self.is_valid_start_byte(data[0:1]):
-                    self._byte_mask[cursor] = ByteType.HIT_START
-                    logger.info('Valid start byte, extra bytes set aside for next readout!')
-                    self._extra_bytes = data
-                    self._decoding_status.set(Decoding.VALID_EXTRA_BYTES)
-                else:
-                    self._decoding_status.set(Decoding.INVALID_EXTRA_BYTES)
-                break
-
-            byte = self._readout_data[cursor:cursor + 1]
-            # At this point we do expect a valid start hit for the next event...
-            if not self.is_valid_start_byte(byte):
-                # ... and if this is not the case, we go forward until we find the
-                # next hit start, dropping all the bytes in between.
-                logger.warning(self._invalid_start_byte_msg(byte, cursor))
-                while not self.is_valid_start_byte(self._readout_data[cursor:cursor + 1]):
-                    self._byte_mask[cursor] = ByteType.DROPPED
-                    cursor += 1
-
-            # We have a tentative 8-byte word, with the correct start byte,
-            # representing a hit.
-            data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
-
-            # Loop over bytes 1--7 (included) in the word to see whether there is
-            # any additional valid start byte in the hit.
-            for offset in range(1, len(data)):
-                byte = data[offset:offset + 1]
-                if self.is_valid_start_byte(byte):
-                    # At this point we have really two cases:
-                    # 1 - this is a legitimate hit containing a start byte by chance;
-                    # 2 - this is a truncated hit, and the start byte signals the next hit.
-                    # I don't think there is any way we can get this right 100% of the
-                    # times, but a sensible thing to try is to move forward by the hit size,
-                    # skip all the subsequent idle bytes and see if the next thing in line
-                    # is a valid start byte. In that situation we are probably
-                    # dealing with case 1.
-                    forward_cursor = cursor + self.HIT_CLASS._SIZE
-                    while self._readout_data[forward_cursor:forward_cursor + 1] == self.IDLE_BYTE:
-                        forward_cursor += 1
-                    if forward_cursor < len(self._readout_data):
-                        byte = self._readout_data[forward_cursor:forward_cursor + 1]
-                        if not self.is_valid_start_byte(byte):
-                            # Here we are really in case 2, and there is not other thing
-                            # we can do except dropping the hit.
-                            logger.warning(f'Unexpected start byte {byte} @ position {cursor}+{offset}')  # noqa: E501
-                            logger.warning(f'Dropping incomplete hit {data[:offset]}')
-                            self._decoding_status.set(Decoding.INCOMPLETE_HIT_DROPPED)
-                            self._byte_mask[cursor:cursor + offset] = ByteType.DROPPED
-                            cursor = cursor + offset
-                            data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
-
-            # And this should be by far the most common case.
-            self._add_hit(data)
-            self._byte_mask[cursor:cursor + 1] = ByteType.HIT_START
-            self._byte_mask[cursor + 1:cursor + self.HIT_CLASS._SIZE] = ByteType.HIT
-            cursor += self.HIT_CLASS._SIZE
-            while self._readout_data[cursor:cursor + 1] == self.IDLE_BYTE:
-                self._byte_mask[cursor] = ByteType.IDLE
-                cursor += 1
-        if not self.all_bytes_visited():
-            self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
-        return self._hits
 
 
-__READOUT_CLASSES = (AstroPix4Readout, )
+__READOUT_CLASSES = (AstroPix4Readout, AstroPix3Readout)
 __READOUT_CLASS_DICT = {readout_class.uid(): readout_class for readout_class in __READOUT_CLASSES}
 
 
