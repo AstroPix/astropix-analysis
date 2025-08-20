@@ -22,7 +22,6 @@ import typing
 
 from astropix_analysis import logger
 from astropix_analysis.fileio import apx_open, FileHeader, sanitize_path
-from astropix_analysis.fmt import AstroPix4Readout
 
 
 class LogFileHeader(dict):
@@ -158,7 +157,7 @@ class AstroPixLogFile:
         return readout_id, readout_data
 
 
-def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
+def log_to_apx(input_file_path: str, readout_class: type,
                output_file_path: str = None) -> str:
     """Convert a .log (text) file to a .apx (binary) file.
     """
@@ -187,7 +186,7 @@ def log_to_apx(input_file_path: str, readout_class: type = AstroPix4Readout,
                 except ValueError as exception:
                     logger.warning(f'{exception} for readout {readout_id}')
                     continue
-                readout = AstroPix4Readout(readout_data, readout_id, wall_timestamp=0)
+                readout = readout_class(readout_data, readout_id, wall_timestamp=0)
                 readout.write(output_file)
                 num_readouts += 1
     if num_readouts == 0:

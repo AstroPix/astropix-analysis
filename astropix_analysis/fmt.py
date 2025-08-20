@@ -999,8 +999,12 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     _UID = 4000
 
 
+# And not for some bookkeeping that will turn out to be handy downstream,
+# expecially for command-line options.
 __READOUT_CLASSES = (AstroPix4Readout, AstroPix3Readout)
-__READOUT_CLASS_DICT = {readout_class.uid(): readout_class for readout_class in __READOUT_CLASSES}
+__READOUT_CLASS_DICT = {cls.uid(): cls for cls in __READOUT_CLASSES}
+__READOUT_CLASS_NAMES = tuple(cls.__name__ for cls in __READOUT_CLASSES)
+__READOUT_CLASS_NAME_DICT = {cls.__name__: cls for cls in __READOUT_CLASSES}
 
 
 def uid_to_readout_class(uid: int) -> type:
@@ -1014,3 +1018,22 @@ def uid_to_readout_class(uid: int) -> type:
     if uid not in __READOUT_CLASS_DICT:
         raise RuntimeError(f'Unknown readout class with identifier {uid}')
     return __READOUT_CLASS_DICT[uid]
+
+
+def supported_readout_names() -> tuple:
+    """Return a tuple with the names of all supported readout classes.
+    """
+    return __READOUT_CLASS_NAMES
+
+
+def name_to_readout_class(name: str) -> type:
+    """Return the readout class corresponding to a given name.
+
+    Arguments
+    ---------
+    name : str
+        The name of the readout class.
+    """
+    if name not in __READOUT_CLASS_NAME_DICT:
+        raise RuntimeError(f'Unknown readout class with name {name}')
+    return __READOUT_CLASS_NAME_DICT[name]

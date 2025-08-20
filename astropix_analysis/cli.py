@@ -23,6 +23,7 @@ import pathlib
 
 from astropix_analysis import logger, LOGGING_LEVELS, DEFAULT_LOGGING_LEVEL, \
     reset_logger, start_message
+from astropix_analysis import fmt
 from astropix_analysis import sock
 
 
@@ -122,6 +123,13 @@ class ArgumentParser(argparse.ArgumentParser):
                            help='multicast group')
         group.add_argument('--port', type=int, default=sock.DEFAULT_PORT,
                            help='multicast port')
+
+    def add_readout_class(self) -> None:
+        """Add the --readout option
+        """
+        self.add_argument('--readout', type=str, choices=fmt.supported_readout_names(),
+                          required=True,
+                          help='name of the readout class in the target file')
 
     def add_refresh(self, default: float) -> None:
         """Add the refresh argument (interval in s).

@@ -20,6 +20,7 @@
 import argparse
 
 from astropix_analysis.cli import ArgumentParser
+from astropix_analysis.fmt import name_to_readout_class
 from astropix_analysis.legacy import log_to_apx
 
 
@@ -33,11 +34,13 @@ binary format.
 def main(args: argparse.Namespace) -> None:
     """Actual conversion function.
     """
+    readout_class = name_to_readout_class(args.readout)
     for file_path in args.infiles:
-        log_to_apx(file_path)
+        log_to_apx(file_path, readout_class)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=_DESCRIPTION)
     parser.add_infiles()
+    parser.add_readout_class()
     main(parser.parse_args())
