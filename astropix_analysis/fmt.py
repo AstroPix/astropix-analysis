@@ -198,7 +198,12 @@ class AbstractAstroPixHit(ABC):
           this is that all the error checking happens at the readout level, before
           the bit order is reversed and before the hit is even created.
         """
-        return ord(byte) >> 5 == cls._REVERSED_PAYLOAD
+        try:
+            return ord(byte) >> 5 == cls._REVERSED_PAYLOAD
+        except TypeError:
+            # We have run into cases where we have an empty string, here, and
+            # I am not exactly sure why.
+            return False
 
     @classmethod
     def empty_table(cls, attribute_names: list[str] = None) -> astropy.table.Table:
@@ -623,11 +628,11 @@ class AbstractAstroPixReadout(ABC):
         """
         return byte != cls.PADDING_BYTE and cls.HIT_CLASS.is_valid_start_byte(byte)
 
-    @staticmethod
-    def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
+    def _invalid_start_byte_msg(self, start_byte: bytes, position: int) -> str:
         """Generic error message for an invalid start byte.
         """
-        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
+        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) ' \
+               f'for readout {self.readout_id} @ position {position}'
 
     def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
         """Add a hit to readout.
@@ -738,11 +743,9 @@ class AbstractAstroPixReadout(ABC):
                     if cursor == len(self._readout_data):
                         return self._hits
 
-            # We have a tentative 8-byte word, with the correct start byte,
-            # representing a hit.
             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
-            # Loop over bytes 1--7 (included) in the word to see whether there is
+            # Loop over the bytes in the word to see whether there is
             # any additional valid start byte in the hit.
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
@@ -769,6 +772,10 @@ class AbstractAstroPixReadout(ABC):
                             self._byte_mask[cursor:cursor + offset] = ByteType.DROPPED
                             cursor = cursor + offset
                             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
+
+            # Again we need to make sure we have not gone past the end.
+            if cursor + self.HIT_CLASS._SIZE > len(self._readout_data):
+                return self._hits
 
             # And this should be by far the most common case.
             self._add_hit(data)
