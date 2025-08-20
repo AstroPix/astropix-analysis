@@ -26,4 +26,10 @@ unit test.
 
 20250729_18524
 --------------
-Sample data run with v3 from a threshold scan at Desy (by Lisa on August 14, 2025).
+Sample data run with v3 from a threshold scan at Desy (from Lisa on August 14, 2025).
+
+
+quad_chip
+---------
+Small binary sample file with a quad-chip setup (from Adrian on August 20, 2025).
+These are just hits, back to back, framed by the FPGA and written straight from the board.
