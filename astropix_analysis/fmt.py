@@ -734,6 +734,9 @@ class AbstractAstroPixReadout(ABC):
                 while not self.is_valid_start_byte(self._readout_data[cursor:cursor + 1]):
                     self._byte_mask[cursor] = ByteType.DROPPED
                     cursor += 1
+                    # We have to make sure we are not going past the end of input data.
+                    if cursor == len(self._readout_data):
+                        return self._hits
 
             # We have a tentative 8-byte word, with the correct start byte,
             # representing a hit.
