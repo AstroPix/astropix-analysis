@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Unit tests for the decoding routines for AstroPix v3s.
+"""Unit tests for the decoding routines for AstroPix v3.
 """
 
 from astropix_analysis import ASTROPIX_ANALYSIS_TESTS_DATA
