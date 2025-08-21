@@ -304,7 +304,7 @@ class AstroPix3QuadChipHit(AstroPix3Hit):
 
     _SIZE = 11
     _LAYOUT = {
-        'payload': (slice(0, 8), np.uint8),
+        'frame_payload': (slice(0, 8), np.uint8),
         'chain': (slice(8, 16), np.uint8),
         'chip_id': (slice(16, 21), np.uint8),
         'payload': (slice(21, 24), np.uint8),
@@ -1022,6 +1022,16 @@ class AstroPix3Readout(AbstractAstroPixReadout):
 
     HIT_CLASS = AstroPix3Hit
     _UID = 3000
+
+
+@readoutclass
+class AstroPix3QuadChipReadout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 3 readout.
+    """
+
+    HIT_CLASS = AstroPix3QuadChipHit
+    _UID = 3100
 
 
 @readoutclass

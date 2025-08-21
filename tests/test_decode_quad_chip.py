@@ -17,15 +17,25 @@
 """
 
 from astropix_analysis import ASTROPIX_ANALYSIS_TESTS_DATA
-from astropix_analysis.fmt import reverse_bit_order
+from astropix_analysis.fmt import AstroPix3QuadChipHit
 
 
 def test():
+    """Process the small input file provided by Adrien and compare with the
+    processed csv file.
     """
-    """
-    file_path = ASTROPIX_ANALYSIS_TESTS_DATA / 'quad_chip' / 'quad_chip_data.bin'
-    with open(file_path, 'rb') as input_file:
-        data = input_file.read(11)
-        for i in range(11):
-            byte = data[i:i + 1]
-            print(bin(ord(reverse_bit_order(byte))))
+    bin_file_path = ASTROPIX_ANALYSIS_TESTS_DATA / 'quad_chip' / 'quad_chip_data.bin'
+    csv_file_path = ASTROPIX_ANALYSIS_TESTS_DATA / 'quad_chip' / 'quad_chip_data.csv'
+    with open(bin_file_path, 'rb') as bin_file, open(csv_file_path, 'r') as csv_file:
+        csv_file.readline()
+        for i in range(10):
+            readout_id, readout, layer, chip_id, payload, location, column, timestamp, \
+                tot_msb, tot_lsb, tot_total, tot_us, fpga_ts = csv_file.readline().strip('\n').split(',')
+            hit_data = bin_file.read(AstroPix3QuadChipHit._SIZE)
+            hit = AstroPix3QuadChipHit(hit_data, i, 0, 0)
+            print(hit)
+            print(readout_id, hit.readout_id)
+            print(payload, hit.payload)
+            print(chip_id, hit.chip_id)
+            print(location, hit.location)
+            print(fpga_ts, hit.fpga_timestamp)
