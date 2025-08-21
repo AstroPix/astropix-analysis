@@ -3,13 +3,13 @@ This folder contains small chunks of data for testing purposes.
 
 20250722_094253
 ---------------
-Small run from a charge-injection threshold scan, with the .log file being written
+Small run from a charge-injection threshold scan with v4, with the .log file being written
 by the DAQ and the corresponding .apx file created by processing the former.
 
 
 20250723_092534
 ---------------
-Similar run from a threshold scan, but this time using the new DAQ facilities to
+Similar run from a threshold scan with v4, but this time using the new DAQ facilities to
 write the .apx file directly. (Ironically, the .log file here is a real log file.)
 All the other files contain decoded hits in various formats using the new processing
 facilities.
@@ -18,7 +18,20 @@ facilities.
 decode
 ------
 Contains a small .log file assembled by hand (by Grant and Andrea while in Pisa
-on July 23, 2025) to illustrate all the different ways  in which decoding can be
+on July 23, 2025) to illustrate all the different ways  in which v4 decoding can be
 difficult. The corresponding .csv file was created by Grant's decoder. A verbatim
 copy of the various problematic readout is includes in the ``test_decode.py``
-unit test. 
+unit test.
+
+
+20250729_18524
+--------------
+Sample data run with v3 from a threshold scan at Desy (from Lisa on August 14, 2025).
+
+
+quad_chip
+---------
+Small binary sample file with a quad-chip setup (from Adrian on August 20, 2025).
+These are just hits, back to back, framed by the FPGA and written straight from the board.
+
+Original message from Adrian. For clarification: The bin file contains the first ~1001 astropix hits (the first 22000 bytes of data, rounded up to the end of the frame). I decoded by hand the last few binary frames to make sure that the content of the two files end at the same point.
