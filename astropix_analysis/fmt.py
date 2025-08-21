@@ -263,7 +263,7 @@ class AbstractAstroPixHit(ABC):
 
 
 @hitclass
-class AstroPix3HalfHit(AbstractAstroPixHit):
+class AstroPix3Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix3 (half) hit.
     """
@@ -294,6 +294,31 @@ class AstroPix3HalfHit(AbstractAstroPixHit):
         # Calculate the TOT in physical units.
         self.tot_dec = (self.tot_msb << 8) + self.tot_lsb
         self.tot_us = self.tot_dec / self.CLOCK_CYCLES_PER_US
+
+
+@hitclass
+class AstroPix3QuadChipHit(AstroPix3Hit):
+
+    """Class describing an AstroPix3 (half) hit.
+    """
+
+    _SIZE = 11
+    _LAYOUT = {
+        'payload': (slice(0, 8), np.uint8),
+        'chain': (slice(8, 16), np.uint8),
+        'chip_id': (slice(16, 21), np.uint8),
+        'payload': (slice(21, 24), np.uint8),
+        'readout_id': (None, np.uint32),
+        'wall_timestamp': (None, np.uint64),
+        'decoding_order': (None, np.uint8),
+        'column': (24, np.uint8),
+        'location': (slice(26, 32), np.uint8),
+        'tot_msb': (slice(44, 48), np.uint8),
+        'tot_lsb': (slice(48, 56), np.uint8),
+        'tot_dec': (None, np.uint16),
+        'tot_us': (None, np.float32),
+        'fpga_timestamp': (slice(56, 88), np.uint32)
+        }
 
 
 @hitclass
@@ -995,7 +1020,7 @@ class AstroPix3Readout(AbstractAstroPixReadout):
     """Class describing an AstroPix 3 readout.
     """
 
-    HIT_CLASS = AstroPix3HalfHit
+    HIT_CLASS = AstroPix3Hit
     _UID = 3000
 
 
