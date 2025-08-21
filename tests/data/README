@@ -33,3 +33,5 @@ quad_chip
 ---------
 Small binary sample file with a quad-chip setup (from Adrian on August 20, 2025).
 These are just hits, back to back, framed by the FPGA and written straight from the board.
+
+Original message from Adrian. For clarification: The bin file contains the first ~1001 astropix hits (the first 22000 bytes of data, rounded up to the end of the frame). I decoded by hand the last few binary frames to make sure that the content of the two files end at the same point.
