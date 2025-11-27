@@ -80,6 +80,10 @@ def hitclass(cls: type) -> type:
     type is created, as opposed to do it over and over again each time an instance
     of the class is created. More specifically:
 
+    * _PAYLOAD is the number of bytes in the hit, header excluded (i.e., _SIZE - 1);
+    * _PAYLOAD_REVERSE is the three-bit complement of _PAYLOAD, which is used to
+      test whether a given byte is a valid start byte for a hit;
+    * DEFAULT_START_BYTE is the starting byte for a hit with chip_id 0;
     * ``ATTRIBUTE_NAMES`` is a tuple containing all the hit field names that can be
       used, e.g., for printing out the hit itself;
     * ``_ATTR_IDX_DICT`` is a dictionary mapping the name of each attribute to
@@ -91,6 +95,9 @@ def hitclass(cls: type) -> type:
       (e.g., in HDF5 or FITS format).
     """
     # pylint: disable=protected-access
+    cls._PAYLOAD = cls._SIZE - 1
+    cls._REVERSED_PAYLOAD = int(f'{cls._PAYLOAD:03b}'[::-1], 2)
+    cls.DEFAULT_START_BYTE = cls._REVERSED_PAYLOAD << 5
     cls.ATTRIBUTE_NAMES = tuple(cls._LAYOUT.keys())
     cls._ATTR_IDX_DICT = {name: idx for name, (idx, _) in cls._LAYOUT.items() if idx is not None}
     cls._ATTR_TYPE_DICT = {name: type_ for name, (_, type_) in cls._LAYOUT.items()}
@@ -127,18 +134,26 @@ class AbstractAstroPixHit(ABC):
     _SIZE = 0
     _LAYOUT = {}
     # ... while these get populated automatically once the subclass is decorated
-    # with @hitclass (and still we initialize them here to None to make the linters happy.)
+    # with @hitclass (and still we initialize them here to None to make the linters
+    # happy.)
+    _PAYLOAD = 0
+    _REVERSED_PAYLOAD = 0
+    DEFAULT_START_BYTE = 0
     ATTRIBUTE_NAMES = ()
     _ATTR_IDX_DICT = {}
     _ATTR_TYPE_DICT = {}
 
     @abstractmethod
-    def __init__(self, data: bytearray) -> None:
+    def __init__(self, data: bytearray, readout_id: int, wall_timestamp: int,
+                 decoding_order: int) -> None:
         """Constructor.
         """
         # Since we don't need the underlying bit pattern to be mutable, turn the
         # bytearray object into a bytes object.
         self._data = bytes(data)
+        self.readout_id = readout_id
+        self.wall_timestamp = wall_timestamp
+        self.decoding_order = decoding_order
         # Build a bit pattern to extract the fields and loop over the hit fields
         # to set all the class members.
         bit_pattern = BitPattern(self._data)
@@ -161,6 +176,34 @@ class AbstractAstroPixHit(ABC):
             mask >>= 1
             decimal ^= mask  # XOR each shifted bit
         return decimal
+
+    @classmethod
+    def is_valid_start_byte(cls, byte: bytes) -> bool:
+        """Return True if the byte is a valid start byte for the hit.
+
+        The start byte of a hit contains the chip ID, packed within the
+        legth of the hit payload (i.e., the size of the hit excluding the header
+        itself). More specifically, the three most significant bits represent the
+        payload, whether the five least significant bits represent the chip ID.
+        For instance:
+
+        * for AstroPix3 the hit size is 5, the payload is 4, and the start byte
+          of the hit has the form 0b100xxxxx;
+        * for AstroPix4 the hit size is 8, the payload is 7, and the start byte
+          of the hit has the form 0b111xxxxx;
+
+        .. note::
+          This assume the byte is before the bit order is reversed, i.e., this operates
+          in the space of the data stream from the Nexys board. The rational for
+          this is that all the error checking happens at the readout level, before
+          the bit order is reversed and before the hit is even created.
+        """
+        try:
+            return ord(byte) >> 5 == cls._REVERSED_PAYLOAD
+        except TypeError:
+            # We have run into cases where we have an empty string, here, and
+            # I am not exactly sure why.
+            return False
 
     @classmethod
     def empty_table(cls, attribute_names: list[str] = None) -> astropy.table.Table:
@@ -222,20 +265,18 @@ class AbstractAstroPixHit(ABC):
 @hitclass
 class AstroPix3Hit(AbstractAstroPixHit):
 
-    """Class describing an AstroPix3 hit.
-
-    .. warning::
-
-        This is copied from decode.py and totally untested.
+    """Class describing an AstroPix3 (half) hit.
     """
 
     _SIZE = 5
     _LAYOUT = {
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
+        'readout_id': (None, np.uint32),
+        'wall_timestamp': (None, np.uint64),
+        'decoding_order': (None, np.uint8),
         'column': (8, np.uint8),
         'location': (slice(10, 16), np.uint8),
-        'timestamp': (slice(16, 24), np.uint8),
         'tot_msb': (slice(28, 32), np.uint8),
         'tot_lsb': (slice(32, 40), np.uint8),
         'tot_dec': (None, np.uint16),
@@ -244,14 +285,40 @@ class AstroPix3Hit(AbstractAstroPixHit):
 
     CLOCK_CYCLES_PER_US = 200.
 
-    def __init__(self, data: bytearray) -> None:
+    def __init__(self, data: bytearray, readout_id: int, wall_timestamp: int,
+                 decoding_order: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
-        super().__init__(data)
+        super().__init__(data, readout_id, wall_timestamp, decoding_order)
         # Calculate the TOT in physical units.
         self.tot_dec = (self.tot_msb << 8) + self.tot_lsb
         self.tot_us = self.tot_dec / self.CLOCK_CYCLES_PER_US
+
+
+@hitclass
+class AstroPix3QuadChipHit(AstroPix3Hit):
+
+    """Class describing an AstroPix3 (half) hit.
+    """
+
+    _SIZE = 11
+    _LAYOUT = {
+        'frame_payload': (slice(0, 8), np.uint8),
+        'chain': (slice(8, 16), np.uint8),
+        'chip_id': (slice(16, 21), np.uint8),
+        'payload': (slice(21, 24), np.uint8),
+        'readout_id': (None, np.uint32),
+        'wall_timestamp': (None, np.uint64),
+        'decoding_order': (None, np.uint8),
+        'column': (24, np.uint8),
+        'location': (slice(26, 32), np.uint8),
+        'tot_msb': (slice(44, 48), np.uint8),
+        'tot_lsb': (slice(48, 56), np.uint8),
+        'tot_dec': (None, np.uint16),
+        'tot_us': (None, np.float32),
+        'fpga_timestamp': (slice(56, 88), np.uint32)
+        }
 
 
 @hitclass
@@ -265,7 +332,7 @@ class AstroPix4Hit(AbstractAstroPixHit):
         'chip_id': (slice(0, 5), np.uint8),
         'payload': (slice(5, 8), np.uint8),
         'readout_id': (None, np.uint32),
-        'timestamp': (None, np.uint64),
+        'wall_timestamp': (None, np.uint64),
         'decoding_order': (None, np.uint8),
         'row': (slice(8, 13), np.uint8),
         'column': (slice(13, 18), np.uint8),
@@ -285,13 +352,12 @@ class AstroPix4Hit(AbstractAstroPixHit):
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, readout_id: int, timestamp: int,
+    def __init__(self, data: bytearray, readout_id: int, wall_timestamp: int,
                  decoding_order: int) -> None:
         """Constructor.
         """
         # pylint: disable=no-member
-        super().__init__(data)
-        self.decoding_order = decoding_order
+        super().__init__(data, readout_id, wall_timestamp, decoding_order)
         # Calculate the values of the two timestamps in clock cycles.
         self.ts_dec1 = self._compose_ts(self.ts_coarse1, self.ts_fine1)
         self.ts_dec2 = self._compose_ts(self.ts_coarse2, self.ts_fine2)
@@ -300,8 +366,6 @@ class AstroPix4Hit(AbstractAstroPixHit):
             self.ts_dec2 += self.CLOCK_ROLLOVER
         # Calculate the actual TOT in us.
         self.tot_us = (self.ts_dec2 - self.ts_dec1) / self.CLOCK_CYCLES_PER_US
-        self.readout_id = readout_id
-        self.timestamp = timestamp
 
     @staticmethod
     def _compose_ts(ts_coarse: int, ts_fine: int) -> int:
@@ -531,7 +595,7 @@ class AbstractAstroPixReadout(ABC):
     readout_id : int
         A sequential id for the readout, assigned by the host DAQ machine.
 
-    timestamp : int
+    wall_timestamp : int
         A timestamp for the readout, assigned by the host DAQ machine, in ns since
         the epoch, from time.time_ns().
     """
@@ -555,17 +619,17 @@ class AbstractAstroPixReadout(ABC):
 
     # Basic bookkeeping for the additional fields assigned by the host machine.
     _READOUT_ID_FMT = '<L'
-    _TIMESTAMP_FMT = '<Q'
+    _WALL_TIMESTAMP_FMT = '<Q'
     _LENGTH_FMT = '<L'
 
     def __init__(self, readout_data: bytearray, readout_id: int,
-                 timestamp: int = None) -> None:
+                 wall_timestamp: int = None) -> None:
         """Constructor.
         """
-        # If the timestamp is None, automatically latch the system time.
-        # Note this is done first in order to latch the timestamp as close as
+        # If the wall_timestamp is None, automatically latch the system time.
+        # Note this is done first in order to latch the wall_timestamp as close as
         # possible to the actual readout.
-        self.timestamp = self.latch_ns() if timestamp is None else timestamp
+        self.wall_timestamp = self.latch_ns() if wall_timestamp is None else wall_timestamp
         # Strip all the trailing padding bytes from the input bytearray object
         # and turn it into a bytes object to make it immutable.
         self._readout_data = bytes(readout_data.rstrip(self.PADDING_BYTE))
@@ -577,274 +641,36 @@ class AbstractAstroPixReadout(ABC):
         self._byte_mask = np.zeros(len(self._readout_data), dtype=int)
         self._hits = []
 
-    @abstractmethod
-    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:
-        """Placeholder for the decoding function---this needs to be reimplemented
-        in derived classes.
-        """
-
-    def data(self) -> bytes:
-        """Return the underlying binary data.
-        """
-        return self._readout_data
-
-    def decoded(self) -> bool:
-        """Return True if the readout has been decoded.
-        """
-        return self._decoded
-
-    def decoding_status(self) -> bool:
-        """Return the full decoding status.
-        """
-        return self._decoding_status
-
-    def extra_bytes(self) -> bytes:
-        """Return the extra bytes, if any, at the end of the readout (None if
-        there are no extra bytes).
-        """
-        return self._extra_bytes
-
-    def all_bytes_visited(self) -> bool:
-        """Return True if all the bytes have been visited in the decoding process.
-        """
-        return np.count_nonzero(self._byte_mask == 0) == 0
-
-    def hits(self) -> list:
-        """Return the decoded hits.
-        """
-        if not self.decoded():
-            self.decode()
-        return self._hits
-
     @classmethod
-    def uid(cls) -> int:
-        """Return the unique identifier for the readout class.
+    def is_valid_start_byte(cls, byte: bytes) -> bool:
+        """Return True if the byte is a valid start byte for the relevant hit structure.
+
+        .. warning::
+          We have an amusing edge case, here, in that 0xff is both the padding byte
+          and a valid start byte. We should probably put some thought into this, but
+          we are tentatively saying that 0xff is *not* a valid start byte for a hit,
+          in order to keep the decoding as simple as possible.
         """
-        return cls._UID
+        return byte != cls.PADDING_BYTE and cls.HIT_CLASS.is_valid_start_byte(byte)
 
-    @staticmethod
-    def latch_ns() -> int:
-        """Convenience function returning the time of the function call as an
-        integer number of nanoseconds since the epoch, i.e., January 1, 1970,
-        00:00:00 (UTC) on all platforms.
+    def _invalid_start_byte_msg(self, start_byte: bytes, position: int) -> str:
+        """Generic error message for an invalid start byte.
         """
-        return time.time_ns()
-
-    @staticmethod
-    def _unpack(fmt: str, data: bytes) -> typing.Any:
-        """Convenience function wrapping the struct.unpack() method---this saves us
-        the trouble of getting the first (and only) element of a 1-element list.
-        """
-        return struct.unpack(fmt, data)[0]
-
-    @staticmethod
-    def _unpack_slice(fmt: str, data: bytes, start: int) -> typing.Any:
-        """Convenience function to unpack a specific slice of a bytes object.
-        """
-        size = struct.calcsize(fmt)
-        value = AbstractAstroPixReadout._unpack(fmt, data[start:start + size])
-        return value, start + size
-
-    @staticmethod
-    def _read_and_unpack(input_file: typing.BinaryIO, fmt: str) -> typing.Any:
-        """Convenience function to read and unpack a fixed-size field from an input file.
-
-        Arguments
-        ---------
-        input_file : BinaryIO
-            A file object opened in "rb" mode.
-
-        fmt : str
-            The format string for the field to be read.
-        """
-        return AbstractAstroPixReadout._unpack(fmt, input_file.read(struct.calcsize(fmt)))
-
-    def to_bytes(self) -> bytes:
-        """Convert the readout object to its binary representation.
-
-        This is used, e.g., to write the readout to disk, or to send the
-        object over to a network socket.
-        """
-        parts = [self._HEADER,
-                 struct.pack(self._READOUT_ID_FMT, self.readout_id),
-                 struct.pack(self._TIMESTAMP_FMT, self.timestamp),
-                 struct.pack(self._LENGTH_FMT, len(self._readout_data)),
-                 self._readout_data
-                 ]
-        return b''.join(parts)
-
-    @classmethod
-    def from_bytes(cls, data: bytes) -> AbstractAstroPixReadout:
-        """Re-assemble the readout object from its binary persistent representation.
-
-        .. note::
-           It would be nice to be able to reuse the same code here and in the
-           ``from_file()`` call, but the slight issue here, is the variable-size part
-           of the event, which makes it not straighforward to read the whole thing
-           from file in one shot. Something we might think about, though.
-
-        Arguments
-        ---------
-        data : bytes
-            The binary data representing the readout.
-        """
-        # Make sure the readout header is correct.
-        _header = data[:cls._HEADER_SIZE]
-        if _header != cls._HEADER:
-            raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
-        # Read all the fields.
-        cursor = cls._HEADER_SIZE
-        readout_id, cursor = cls._unpack_slice(cls._READOUT_ID_FMT, data, cursor)
-        timestamp, cursor = cls._unpack_slice(cls._TIMESTAMP_FMT, data, cursor)
-        _length, cursor = cls._unpack_slice(cls._LENGTH_FMT, data, cursor)
-        data = data[cursor:]
-        # Make sure the remaining part of the binary data matches our expectations
-        # in terms of its size.
-        if len(data) != _length:
-            raise RuntimeError(f'Size mismatch: {len(data)} bytes remaining, expected {_length}')
-        return cls(data, readout_id, timestamp)
-
-    def write(self, output_file: typing.BinaryIO) -> None:
-        """Write the complete readout to a binary file.
-
-        Arguments
-        ---------
-        output_file : BinaryIO
-            A file object opened in "wb" mode.
-        """
-        output_file.write(self.to_bytes())
-
-    @classmethod
-    def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
-        """Create a Readout object reading the underlying data from an input binary file.
-
-        By contract this should return None when there are no more data to be
-        read from the input file, so that downstream code can use the information
-        to stop iterating over the file.
-
-        Arguments
-        ---------
-        input_file : BinaryIO
-            A file object opened in "rb" mode.
-        """
-        _header = input_file.read(cls._HEADER_SIZE)
-        # If the header is empty, this means we are at the end of the file, and we
-        # return None to signal that there are no more readouts to be read. This
-        # can be used downstream, e.g., to raise a StopIteration exception with
-        # the implementation of an iterator protocol.
-        if len(_header) == 0:
-            return None
-        # If the header is not empty, we check that it is what we expect, and raise
-        # a RuntimeError if it is not.
-        if _header != cls._HEADER:
-            raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
-        # Go ahead, read all the fields, and create the AstroPix4Readout object.
-        readout_id = cls._read_and_unpack(input_file, cls._READOUT_ID_FMT)
-        timestamp = cls._read_and_unpack(input_file, cls._TIMESTAMP_FMT)
-        data = input_file.read(cls._read_and_unpack(input_file, cls._LENGTH_FMT))
-        return cls(data, readout_id, timestamp)
+        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) ' \
+               f'for readout {self.readout_id} @ position {position}'
 
     def _add_hit(self, hit_data: bytes, reverse: bool = True) -> None:
         """Add a hit to readout.
-
-        This will be typically called during the readout decoding.
         """
         # pylint: disable=not-callable
         if reverse:
             hit_data = reverse_bit_order(hit_data)
         decoding_order = len(self._hits)
-        hit = self.HIT_CLASS(hit_data, self.readout_id, self.timestamp, decoding_order)
+        hit = self.HIT_CLASS(hit_data, self.readout_id, self.wall_timestamp, decoding_order)
         self._hits.append(hit)
 
-    def hex(self) -> str:
-        """Return a string with the hexadecimal representation of the underlying
-        binary data (two hexadecimal digits per byte).
-        """
-        return self._readout_data.hex()
-
-    def pretty_hex(self):
-        """Return a pretty version of the hexadecimal representation, where the
-        hit portion of the readout are colored.
-        """
-        # pylint: disable=protected-access
-        # This uses the underlying ``_byte_mask``, so we have to make sure the
-        # thing has been decoded.
-        if not self.decoded():
-            self.decode()
-        hex_bytes = self.hex()
-        text = ''
-        for i, byte_type in enumerate(self._byte_mask):
-            byte = hex_bytes[i * 2:i * 2 + 2]
-            text = f'{text}{ByteType.format_byte(byte, byte_type)}'
-        return text
-
-    def pretty_print(self, hits: bool = True) -> str:
-        """Full, glorious pretty print of the readout object.
-        """
-        text = f'{self}\nRaw: {self.data()}\nHex: {self.pretty_hex()}\n\n'
-        if hits:
-            for hit in self.decode():
-                text = f'{text}{hit}\n'
-        text = f'{text}\n{self.decoding_status()}'
-        return text
-
-    def __str__(self) -> str:
-        """String formatting.
-        """
-        return f'{self.__class__.__name__}({len(self._readout_data)} bytes, ' \
-               f'readout_id = {self.readout_id}, timestamp = {self.timestamp} ns)'
-
-
-@readoutclass
-class AstroPix4Readout(AbstractAstroPixReadout):
-
-    """Class describing an AstroPix 4 readout.
-    """
-
-    HIT_CLASS = AstroPix4Hit
-    _UID = 4000
-    DEFAULT_START_BYTE = bytes.fromhex('e0')
-
-    @staticmethod
-    def is_valid_start_byte(byte: bytes) -> bool:
-        """Return True if the byte is a valid start byte for Astropix4 hit.
-
-        This, effectively, entiles to make sure that the byte is of the form `111xxxxx`,
-        where the 5 least significant bits are the chip id.
-
-        .. note::
-          This assume the byte is before the bit order is reverse, i.e., this operates
-          in the space of the data stream from the Nexys board. The rational for
-          this is that all the error checking happens at the readout level, before
-          the bit order is reversed and before the hit is even created.
-
-        .. warning::
-          We have an amusing edge case, here, in that 0xff is both the padding byte
-          and a valid start byte for Astropix 4. We should probably put some thought
-          into this, but we are tentatively saying that 0xff is *not* a valid
-          start byte for a hit, in order to keep the decoding as simple as possible.
-        """
-        return byte != AbstractAstroPixReadout.PADDING_BYTE and ord(byte) >> 5 == 7
-
-    @staticmethod
-    def _invalid_start_byte_msg(start_byte: bytes, position: int) -> str:
-        """Generic error message for an invalid start byte.
-        """
-        return f'Invalid start byte {start_byte} (0b{ord(start_byte):08b}) @ position {position}'
-
-    def decode(self, extra_bytes: bytes = None) -> list[AbstractAstroPixHit]:  # noqa: C901
-        """Astropix4 decoding function.
-
-        .. note::
-          Note that you always need to addess single bytes in the data stream with
-          a proper slice, as opposed to an integer, i.e., `data[i:i + 1]` instead
-          of `data[i]`, because Python will return an integer, otherwise.
-
-        Arguments
-        ---------
-        extra_bytes : bytes
-            Optional extra bytes from the previous readout that might be re-assembled
-            together with the beginning of this readout.
+    def decode(self, extra_bytes: bytes = None):  # noqa: C901
+        """Decoding function.
         """
         # pylint: disable=not-callable, protected-access, line-too-long, too-many-branches, too-many-statements # noqa
         # If the event has been already decoded, return the list of hits that
@@ -938,12 +764,13 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                 while not self.is_valid_start_byte(self._readout_data[cursor:cursor + 1]):
                     self._byte_mask[cursor] = ByteType.DROPPED
                     cursor += 1
+                    # We have to make sure we are not going past the end of input data.
+                    if cursor == len(self._readout_data):
+                        return self._hits
 
-            # We have a tentative 8-byte word, with the correct start byte,
-            # representing a hit.
             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
-            # Loop over bytes 1--7 (included) in the word to see whether there is
+            # Loop over the bytes in the word to see whether there is
             # any additional valid start byte in the hit.
             for offset in range(1, len(data)):
                 byte = data[offset:offset + 1]
@@ -971,6 +798,10 @@ class AstroPix4Readout(AbstractAstroPixReadout):
                             cursor = cursor + offset
                             data = self._readout_data[cursor:cursor + self.HIT_CLASS._SIZE]
 
+            # Again we need to make sure we have not gone past the end.
+            if cursor + self.HIT_CLASS._SIZE > len(self._readout_data):
+                return self._hits
+
             # And this should be by far the most common case.
             self._add_hit(data)
             self._byte_mask[cursor:cursor + 1] = ByteType.HIT_START
@@ -983,9 +814,242 @@ class AstroPix4Readout(AbstractAstroPixReadout):
             self._decoding_status.set(Decoding.NOT_ALL_BYTES_VISITED)
         return self._hits
 
+    def data(self) -> bytes:
+        """Return the underlying binary data.
+        """
+        return self._readout_data
 
-__READOUT_CLASSES = (AstroPix4Readout, )
-__READOUT_CLASS_DICT = {readout_class.uid(): readout_class for readout_class in __READOUT_CLASSES}
+    def decoded(self) -> bool:
+        """Return True if the readout has been decoded.
+        """
+        return self._decoded
+
+    def decoding_status(self) -> bool:
+        """Return the full decoding status.
+        """
+        return self._decoding_status
+
+    def extra_bytes(self) -> bytes:
+        """Return the extra bytes, if any, at the end of the readout (None if
+        there are no extra bytes).
+        """
+        return self._extra_bytes
+
+    def all_bytes_visited(self) -> bool:
+        """Return True if all the bytes have been visited in the decoding process.
+        """
+        return np.count_nonzero(self._byte_mask == 0) == 0
+
+    def hits(self) -> list:
+        """Return the decoded hits.
+        """
+        if not self.decoded():
+            self.decode()
+        return self._hits
+
+    @classmethod
+    def uid(cls) -> int:
+        """Return the unique identifier for the readout class.
+        """
+        return cls._UID
+
+    @staticmethod
+    def latch_ns() -> int:
+        """Convenience function returning the time of the function call as an
+        integer number of nanoseconds since the epoch, i.e., January 1, 1970,
+        00:00:00 (UTC) on all platforms.
+        """
+        return time.time_ns()
+
+    @staticmethod
+    def _unpack(fmt: str, data: bytes) -> typing.Any:
+        """Convenience function wrapping the struct.unpack() method---this saves us
+        the trouble of getting the first (and only) element of a 1-element list.
+        """
+        return struct.unpack(fmt, data)[0]
+
+    @staticmethod
+    def _unpack_slice(fmt: str, data: bytes, start: int) -> typing.Any:
+        """Convenience function to unpack a specific slice of a bytes object.
+        """
+        size = struct.calcsize(fmt)
+        value = AbstractAstroPixReadout._unpack(fmt, data[start:start + size])
+        return value, start + size
+
+    @staticmethod
+    def _read_and_unpack(input_file: typing.BinaryIO, fmt: str) -> typing.Any:
+        """Convenience function to read and unpack a fixed-size field from an input file.
+
+        Arguments
+        ---------
+        input_file : BinaryIO
+            A file object opened in "rb" mode.
+
+        fmt : str
+            The format string for the field to be read.
+        """
+        return AbstractAstroPixReadout._unpack(fmt, input_file.read(struct.calcsize(fmt)))
+
+    def to_bytes(self) -> bytes:
+        """Convert the readout object to its binary representation.
+
+        This is used, e.g., to write the readout to disk, or to send the
+        object over to a network socket.
+        """
+        parts = [self._HEADER,
+                 struct.pack(self._READOUT_ID_FMT, self.readout_id),
+                 struct.pack(self._WALL_TIMESTAMP_FMT, self.wall_timestamp),
+                 struct.pack(self._LENGTH_FMT, len(self._readout_data)),
+                 self._readout_data
+                 ]
+        return b''.join(parts)
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> AbstractAstroPixReadout:
+        """Re-assemble the readout object from its binary persistent representation.
+
+        .. note::
+           It would be nice to be able to reuse the same code here and in the
+           ``from_file()`` call, but the slight issue here, is the variable-size part
+           of the event, which makes it not straighforward to read the whole thing
+           from file in one shot. Something we might think about, though.
+
+        Arguments
+        ---------
+        data : bytes
+            The binary data representing the readout.
+        """
+        # Make sure the readout header is correct.
+        _header = data[:cls._HEADER_SIZE]
+        if _header != cls._HEADER:
+            raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
+        # Read all the fields.
+        cursor = cls._HEADER_SIZE
+        readout_id, cursor = cls._unpack_slice(cls._READOUT_ID_FMT, data, cursor)
+        wall_timestamp, cursor = cls._unpack_slice(cls._WALL_TIMESTAMP_FMT, data, cursor)
+        _length, cursor = cls._unpack_slice(cls._LENGTH_FMT, data, cursor)
+        data = data[cursor:]
+        # Make sure the remaining part of the binary data matches our expectations
+        # in terms of its size.
+        if len(data) != _length:
+            raise RuntimeError(f'Size mismatch: {len(data)} bytes remaining, expected {_length}')
+        return cls(data, readout_id, wall_timestamp)
+
+    def write(self, output_file: typing.BinaryIO) -> None:
+        """Write the complete readout to a binary file.
+
+        Arguments
+        ---------
+        output_file : BinaryIO
+            A file object opened in "wb" mode.
+        """
+        output_file.write(self.to_bytes())
+
+    @classmethod
+    def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
+        """Create a Readout object reading the underlying data from an input binary file.
+
+        By contract this should return None when there are no more data to be
+        read from the input file, so that downstream code can use the information
+        to stop iterating over the file.
+
+        Arguments
+        ---------
+        input_file : BinaryIO
+            A file object opened in "rb" mode.
+        """
+        _header = input_file.read(cls._HEADER_SIZE)
+        # If the header is empty, this means we are at the end of the file, and we
+        # return None to signal that there are no more readouts to be read. This
+        # can be used downstream, e.g., to raise a StopIteration exception with
+        # the implementation of an iterator protocol.
+        if len(_header) == 0:
+            return None
+        # If the header is not empty, we check that it is what we expect, and raise
+        # a RuntimeError if it is not.
+        if _header != cls._HEADER:
+            raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
+        # Go ahead, read all the fields, and create the AstroPix4Readout object.
+        readout_id = cls._read_and_unpack(input_file, cls._READOUT_ID_FMT)
+        wall_timestamp = cls._read_and_unpack(input_file, cls._WALL_TIMESTAMP_FMT)
+        data = input_file.read(cls._read_and_unpack(input_file, cls._LENGTH_FMT))
+        return cls(data, readout_id, wall_timestamp)
+
+    def hex(self) -> str:
+        """Return a string with the hexadecimal representation of the underlying
+        binary data (two hexadecimal digits per byte).
+        """
+        return self._readout_data.hex()
+
+    def pretty_hex(self):
+        """Return a pretty version of the hexadecimal representation, where the
+        hit portion of the readout are colored.
+        """
+        # pylint: disable=protected-access
+        # This uses the underlying ``_byte_mask``, so we have to make sure the
+        # thing has been decoded.
+        if not self.decoded():
+            self.decode()
+        hex_bytes = self.hex()
+        text = ''
+        for i, byte_type in enumerate(self._byte_mask):
+            byte = hex_bytes[i * 2:i * 2 + 2]
+            text = f'{text}{ByteType.format_byte(byte, byte_type)}'
+        return text
+
+    def pretty_print(self, hits: bool = True) -> str:
+        """Full, glorious pretty print of the readout object.
+        """
+        text = f'{self}\nRaw: {self.data()}\nHex: {self.pretty_hex()}\n\n'
+        if hits:
+            for hit in self.decode():
+                text = f'{text}{hit}\n'
+        text = f'{text}\n{self.decoding_status()}'
+        return text
+
+    def __str__(self) -> str:
+        """String formatting.
+        """
+        return f'{self.__class__.__name__}({len(self._readout_data)} bytes, ' \
+               f'readout_id = {self.readout_id}, wall_timestamp = {self.wall_timestamp} ns)'
+
+
+@readoutclass
+class AstroPix3Readout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 3 readout.
+    """
+
+    HIT_CLASS = AstroPix3Hit
+    _UID = 3000
+
+
+@readoutclass
+class AstroPix3QuadChipReadout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 3 readout.
+    """
+
+    HIT_CLASS = AstroPix3QuadChipHit
+    _UID = 3100
+
+
+@readoutclass
+class AstroPix4Readout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 4 readout.
+    """
+
+    HIT_CLASS = AstroPix4Hit
+    _UID = 4000
+
+
+# And not for some bookkeeping that will turn out to be handy downstream,
+# expecially for command-line options.
+__READOUT_CLASSES = (AstroPix4Readout, AstroPix3Readout)
+__READOUT_CLASS_DICT = {cls.uid(): cls for cls in __READOUT_CLASSES}
+__READOUT_CLASS_NAMES = tuple(cls.__name__ for cls in __READOUT_CLASSES)
+__READOUT_CLASS_NAME_DICT = {cls.__name__: cls for cls in __READOUT_CLASSES}
 
 
 def uid_to_readout_class(uid: int) -> type:
@@ -999,3 +1063,22 @@ def uid_to_readout_class(uid: int) -> type:
     if uid not in __READOUT_CLASS_DICT:
         raise RuntimeError(f'Unknown readout class with identifier {uid}')
     return __READOUT_CLASS_DICT[uid]
+
+
+def supported_readout_names() -> tuple:
+    """Return a tuple with the names of all supported readout classes.
+    """
+    return __READOUT_CLASS_NAMES
+
+
+def name_to_readout_class(name: str) -> type:
+    """Return the readout class corresponding to a given name.
+
+    Arguments
+    ---------
+    name : str
+        The name of the readout class.
+    """
+    if name not in __READOUT_CLASS_NAME_DICT:
+        raise RuntimeError(f'Unknown readout class with name {name}')
+    return __READOUT_CLASS_NAME_DICT[name]
