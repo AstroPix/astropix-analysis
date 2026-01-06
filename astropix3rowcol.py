@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors
-
+import argparse
 
 def mkplots(m, m2=None):
   # Plot 1
@@ -85,6 +85,34 @@ def rowcolmatch(chip0, fts=lambda x,y: x-y==0 or x-y==1, ftot=lambda x,y: x-y>6 
         i += 1
     linenb += 1 # Skip cols
   return pd.DataFrame.from_dict(outdict)
+
+if __name__ ==  "__main__":
+  parser = argparse.ArgumentParser("Row-Column matching script for AstroPix v3")
+  parser.add_argument("filename", help="Name of the decoded .csv file")
+  parser.add_argument("-q", "--quiet", action="store_true", help="Suppresses output")
+  parser.add_argument("-l", "--layers", type=int, default=3, help="Number of layers/lanes, default=3")
+  parser.add_argument("-c", "--chips", type=int, default=4, help="Number of chips per layer/lane, default=4")
+  parser.add_argument("--mints", type=int, default=0, help="Minimum halfhit Timestamp difference (row-col) to match, default=0")
+  parser.add_argument("--maxts", type=int, default=1, help="Minimum halfhit Timestamp difference (row-col) to match, default=1")
+  parser.add_argument("--mintot", type=int, default=6, help="Minimum halfhit ToT difference (row-col) to match, default=7")
+  parser.add_argument("--maxtot", type=int, default=15, help="Minimum halfhit ToT difference (row-col) to match, default=14")
+  args = parser.parse_args()
+  # Read data
+  data = pd.read_csv(args.filename)
+  dataf = data[(data.payload==4)&(data.location<35)] # Filter corrupted data
+  if not args.quiet:
+    print(f"{len(data)} decoded halfhits read, {len(dataf)} halfhits are valid ({100*len(dataf)/len(data):.2f}%).")
+  # Row-col match per chip
+  output = []
+  for layer in range(args.layers):
+    for chip in range(args.chips):
+      datac = dataf[(dataf.chipID==chip)&(dataf.layer==layer)]
+      output.append(rowcolmatch(datac, fts=lambda x,y: x-y>=args.mints and x-y<=args.maxts, ftot=lambda x,y: x-y>=args.mintot and x-y<=args.maxtot))
+      if not args.quiet:
+        print(f"Layer {layer}, Chip {chip}: {len(datac)} halfhits found, {len(output[-1])} hits matched ({100*len(output[-1])*2/max(1, len(datac)):.2f}%).")
+  pd.concat(output).to_csv(f"{args.filename[:-4]}_matched.csv")
+
+
 
 if __name__ == "__main__" and False: # Set to True to run as a script
   print("Loading data")
