@@ -2,6 +2,13 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <stdexcept>
+
+bool stobool(std::string tmp) {
+  if (tmp == "0" || tmp == "true" || tmp == "True") return true;
+  if (tmp == "1" || tmp == "false" || tmp == "False") return false;
+  throw std::invalid_argument(std::string("stobool: no conversion for ")+tmp);
+}
 
 std::vector<HalfHit> CSVReader::readHalfHits(const std::string& filename) {
     std::vector<HalfHit> data;
@@ -20,11 +27,13 @@ std::vector<HalfHit> CSVReader::readHalfHits(const std::string& filename) {
         HalfHit h;
         std::string tmp;
 
+        std::getline(ss, tmp, ','); // Skip line number
+        std::getline(ss, tmp, ','); // Skip line readout
         std::getline(ss, tmp, ','); h.layer = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.chipID = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.payload = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.location = std::stoi(tmp);
-        std::getline(ss, tmp, ','); h.isCol = std::stoi(tmp);
+        std::getline(ss, tmp, ','); h.isCol = stobool(tmp);
         std::getline(ss, tmp, ','); h.timestamp = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.tot_total = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.tot_us = std::stod(tmp);
