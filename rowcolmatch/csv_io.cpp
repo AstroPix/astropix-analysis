@@ -35,6 +35,8 @@ std::vector<HalfHit> CSVReader::readHalfHits(const std::string& filename) {
         std::getline(ss, tmp, ','); h.location = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.isCol = stobool(tmp);
         std::getline(ss, tmp, ','); h.timestamp = std::stoi(tmp);
+        std::getline(ss, tmp, ','); // Skip ToT MSB
+        std::getline(ss, tmp, ','); // Skip ToT LSB
         std::getline(ss, tmp, ','); h.tot_total = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.tot_us = std::stod(tmp);
         std::getline(ss, tmp, ','); h.fpga_ts = std::stoll(tmp);
@@ -56,12 +58,14 @@ void CSVWriter::writeMatchedHits(
     }
 
     // Header
-    file << "layer,chipID,row,col,row_timestamp,col_timestamp,"
+    file << ",layer,chipID,row,col,row_timestamp,col_timestamp,"
          << "row_tot,col_tot,row_tot_us,col_tot_us,"
          << "row_fpga_ts,col_fpga_ts\n";
 
-    for (const auto& h : hits) {
-        file << h.layer << ","
+    for (std::size_t i = 0; i < hits.size(); ++i) {
+        auto const& h = hits[i];
+        file << i << ","
+             << h.layer << ","
              << h.chipID << ","
              << h.row << ","
              << h.col << ","

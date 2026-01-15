@@ -1,4 +1,7 @@
 #pragma once
+#include <sstream>
+#include <string>
+#include <cstring>
 
 struct HalfHit {
     int layer;
@@ -10,6 +13,11 @@ struct HalfHit {
     int tot_total;
     double tot_us;
     long long fpga_ts;
+    std::string toStr() const {
+      std::stringstream ss;
+      ss << layer << "," << chipID << "," << payload << "," << location << "," << isCol << "," << timestamp << "," << tot_total << "," << fpga_ts;
+      return ss.str();
+    }
 };
 
 struct MatchedHit {
