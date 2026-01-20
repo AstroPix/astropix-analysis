@@ -63,15 +63,20 @@ def decode_astep_hit(hit, i:int, dec_ord, printer:bool = False,is_bin=False):
 
 
 
-def find_all_indexes(text, substring):
+def find_all_indexes(text, substrings):
     indexes = []
-    start_index = 0
-    while True:
-        index = text.find(substring, start_index)
-        if index == -1:
-            break
-        indexes.append(index)
-        start_index = index + 1
+    if type(substrings) is not list:
+        substrings=[substrings]
+
+    for substring in substrings:
+        start_index = 0
+        while True:
+            index = text.find(substring, start_index)
+            if index == -1:
+                break
+            indexes.append(index)
+            start_index = index + 1
+
     return np.array(indexes)
 
 def diff_consecutive(input_list):
@@ -95,16 +100,7 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
         if stored_split_first_part is not None:
                 full_line=stored_split_first_part+full_line
         
-        search_value_bytes = bytes.fromhex("0a01")
-        start = 0
-        list_of_right_header_indexes=[]
-        while True:
-            index = full_line.find(search_value_bytes, start)
-            if index == -1:
-                break
-            start = index + 1
-            list_of_right_header_indexes.append(index)
-        list_of_right_header_indexes=np.array(list_of_right_header_indexes)
+        list_of_right_header_indexes=find_all_indexes(full_line,[bytes.fromhex("0a01"),bytes.fromhex("0a02"),bytes.fromhex("0a03")])
         if list_of_right_header_indexes.size!=0:
             difference_list=diff_consecutive(list_of_right_header_indexes)
             mask_list=difference_list>=11
@@ -150,7 +146,7 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
                     no_ff_list.append(j)
             no_ff_string=''.join(no_ff_list)
 
-            list_of_right_header_indexes=find_all_indexes(no_ff_string,'0a01')
+            list_of_right_header_indexes=find_all_indexes(no_ff_string,['0a01','0a02','0a03'])
             if len(list_of_right_header_indexes)>0:
                 difference_list=diff_consecutive(list_of_right_header_indexes)
                 mask_list=difference_list>=22
