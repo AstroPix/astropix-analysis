@@ -12,19 +12,21 @@ std::vector<MatchedHit> rowcolmatch(
 
     for (size_t linenb = 0; linenb < chip0.size(); ++linenb) {
         const auto& rowHit = chip0[linenb];
-        //std::cout << "row: " << rowHit.toStr() << std::endl;
+        //std::cout << rowHit.toStr() << std::endl;
 
         if (rowHit.isCol == 0) {
             bool foundcol = false;
-
+            //size_t i = linenb + 1;
+            //std::cout << "Matching " << linenb << "\nrow: " << rowHit.toStr() << std::endl;
+            //while (i < chip0.size() && (!foundcol || chip0[i].isCol == 1)) {
             for (size_t i = linenb + 1;
                  i < chip0.size() && (!foundcol || chip0[i].isCol == 1);
                  ++i) {
 
                 const auto& colHit = chip0[i];
-                //std::cout << "col: " << colHit.toStr() << std::endl;
+                //std::cout << i << " col: " << colHit.toStr() << " foundcol=" << foundcol << std::endl;
                 if (colHit.isCol == 1) {
-                    foundcol = true;
+                    if (!foundcol) foundcol = true;
 
                     if (fts(rowHit.timestamp, colHit.timestamp) &&
                         ftot(rowHit.tot_total, colHit.tot_total)) {
@@ -45,6 +47,7 @@ std::vector<MatchedHit> rowcolmatch(
                         });
                     }
                 }
+                //++i;
             }
         }
         //if (linenb > 100) return output;

@@ -5,8 +5,8 @@
 #include <stdexcept>
 
 bool stobool(std::string tmp) {
-  if (tmp == "0" || tmp == "true" || tmp == "True") return true;
-  if (tmp == "1" || tmp == "false" || tmp == "False") return false;
+  if (tmp == "1" || tmp == "true" || tmp == "True") return true;
+  if (tmp == "0" || tmp == "false" || tmp == "False") return false;
   throw std::invalid_argument(std::string("stobool: no conversion for ")+tmp);
 }
 
