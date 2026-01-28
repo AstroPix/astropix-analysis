@@ -119,10 +119,11 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
 
             for decode_index, one_right_header_index in enumerate(list_of_right_header_indexes):
                     hit=full_line[one_right_header_index:one_right_header_index+11]
-                    decoded_hit=decode_astep_hit(hit,0,0,is_bin=True) #currently all readout number and decode order set to 0
-                    write_string=','.join(str(x) for x in decoded_hit)
-                    write_file.write(f'{write_string}\n')
-                    decoded_list.append(decoded_hit)
+                    if len(hit)==11: # to fix a problem where a cutoff hit gets passed through, wrong length happens < 0.0001% of the time
+                        decoded_hit=decode_astep_hit(hit,0,0,is_bin=True) #currently all readout number and decode order set to 0
+                        write_string=','.join(str(x) for x in decoded_hit)
+                        write_file.write(f'{write_string}\n')
+                        decoded_list.append(decoded_hit)
 
 
 
