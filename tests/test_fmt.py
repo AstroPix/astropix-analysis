@@ -20,8 +20,8 @@
 import pytest
 
 from astropix_analysis.fmt import BitPattern, AstroPix4Readout, AbstractAstroPixReadout, \
-     AbstractAstroPixHit, AstroPix4Hit, uid_to_readout_class, Decoding, DecodingStatus, \
-     readoutclass
+     AbstractAstroPixHit, AstroPix3Hit, AstroPix4Hit, uid_to_readout_class, Decoding, \
+     DecodingStatus, readoutclass
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -120,7 +120,7 @@ def test_abc():
 
     # AbstractAstroPixHit is abstract and we need to overload the constructor!
     with pytest.raises(TypeError) as info:
-        _ = AbstractAstroPixHit(None)
+        _ = AbstractAstroPixHit(None, 0, 0, 0)
     print(info.value)
 
     # Make sure classes derived from AbstractAstroPixReadout override HIT_CLASS
@@ -166,3 +166,13 @@ def test_uid():
     uid = 4000
     assert AstroPix4Readout.uid() == uid
     assert uid_to_readout_class(uid) == AstroPix4Readout
+
+
+def test_hit_start_byte():
+    """Test some of the start-byte machinery.
+    """
+    # pylint: disable=protected-access
+    assert AstroPix3Hit.DEFAULT_START_BYTE == 0x20
+    assert AstroPix3Hit._PAYLOAD == 4
+    assert AstroPix4Hit.DEFAULT_START_BYTE == 0xe0
+    assert AstroPix4Hit._PAYLOAD == 7
