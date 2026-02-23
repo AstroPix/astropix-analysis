@@ -1,10 +1,17 @@
 import os
+import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy as sp
 import argparse
+from datetime import datetime
 
+def get_bin_file_size(filename):
+    with open(filename, 'rb') as f:
+        f.seek(0, 2)  # Move to the end of the file
+        size = f.tell()
+        return size
 
 def gray_to_dec(gray: int) -> int:
         """
@@ -70,32 +77,79 @@ def find_all_good_header_indexes(bytes):
 
     return indices
 
+def filter_function(hit, print_bool:bool = False):
+    return_bool=True
+
+    # header length check:
+    length_from_header=int(hit[0])+1
+    if length_from_header!=len(hit):
+        return_bool=False
+    
+        if len(hit)>=3:
+            length_from_astropix=int(hit[2]) & 0b111
+            if len(hit)<length_from_astropix+2+1 and print_bool: # plus 2 for FPGA wrapper start and plus 1 for astropix header byte
+                    print(f'Incorrect Astropix Length: {hit.hex()}')
+            elif print_bool:
+                print(f'Incorrect FPGA Length: {hit.hex()}') # if hit has enough for astropix hit but is too long for fpga length
+        elif print_bool:
+            print(f'Incorrect FPGA Length: {hit.hex()}') # if hit is too short for fpga length and doen't have astropix header (this really shouldn't happen becuause of byte filter)
+
+
+
+    return return_bool
 
 def main(args):
-    with open(args.filename, 'rb') as stream:
-        # data=stream.readlines()
-        data=stream.read()
+    chunk_size=1024
 
 
-    hit_indices=find_all_good_header_indexes(data)
-    end_indices=np.append(hit_indices[1:],len(data))
+    start_time=datetime.now()
+    print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
+
+    bin_file_size=get_bin_file_size(args.filename)
+
+    if bin_file_size>=105000:
+        print(f'{args.filename} \n Size of File: {round(bin_file_size/1024/1024,2)} MB\n')
+    else:
+        print(f'{args.filename} \n Size of File: {round(bin_file_size/1024,2)} kB\n')
+
+    progress_bar=tqdm.tqdm(total=int(bin_file_size/chunk_size)+1)
+
+    read_file=open(args.filename,'rb')
+    write_file=open(args.filename.replace('.bin','.csv'),'w')
+
+    row_0_list=['pack_len', 'layer', 'chipID', 'payload', 'row', 'col', 
+                'tsneg1', 'ts1', 'tsfine1', 'tstdc1', 'tsneg2', 'ts2', 
+                'tsfine2', 'tstdc2', 'ts1_dec', 'ts2_dec', 'tot_us', 'fpga_ts'] # no decode order or readout number here with just binary being read, I think
+    row_0_string=','.join(row_0_list)
+    write_file.write(f'{row_0_string}\n')
 
 
-    for start_index,next_start_index in zip(hit_indices,end_indices):
-        single_hit=data[start_index:next_start_index]
-        single_hit_hex=single_hit.hex()
-        try:
-            decoded_hit=decode(single_hit)
-            print([decoded_hit[4],decoded_hit[5],decoded_hit[-2]])
-            # print(decoded_hit)
-        except IndexError as IE:
-            print(f'IndexError: {IE}')
+    # main running loop
+    while True:
+        chunk = read_file.read(chunk_size)
+        if not chunk:
+            break
+        
+        hit_indices=find_all_good_header_indexes(chunk)
+        end_indices=np.append(hit_indices[1:],len(chunk))
 
+        for start_index,next_start_index in zip(hit_indices,end_indices):
+            single_hit=chunk[start_index:next_start_index]
+            single_hit_hex=single_hit.hex()
+            if filter_function(single_hit, print_bool=True):
+                decoded_hit=decode(single_hit)
+                decoded_hit_string=','.join(str(x) for x in decoded_hit)
+                write_file.write(f'{decoded_hit_string}\n')
+    
+        progress_bar.update(1)
+
+    read_file.close()
+    write_file.close()
 
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(
-        description="Decode astropix v4 data from astep-fw running"
+        description="Decode astropix v4 data from astep-fw running, writes .csv file with same name as input file"
     )
 
     parser.add_argument(
