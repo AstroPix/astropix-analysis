@@ -132,38 +132,41 @@ def main(args):
     retained_hit_split_across_chunks=None
 
     # main running loop
-    while True:
-        chunk = read_file.read(chunk_size)
-        if not chunk:
-            break
+    try:
+        while True:
+            chunk = read_file.read(chunk_size)
+            if not chunk:
+                break
+            
+            if retained_hit_split_across_chunks is not None: # takes care of the problem of one hit being split across data read ins
+                chunk=retained_hit_split_across_chunks+chunk
+
+            hit_indices=find_all_good_header_indexes(chunk)
+            end_indices=np.append(hit_indices[1:],len(chunk))
+
+            for start_index,next_start_index in zip(hit_indices,end_indices):
+                last_hit_in_chunk_bool = start_index==hit_indices[-1]
+
+                single_hit=chunk[start_index:next_start_index]
+                single_hit_hex=single_hit.hex()
+                if header_length_check(single_hit, print_bool=True, last_hit_in_chunk_bool=last_hit_in_chunk_bool)[0]: # right now the only check I know to run, will update with more robust filter function as edge cases are found
+                        decoded_hit=decode(single_hit)
+                        decoded_hit_string=','.join(str(x) for x in decoded_hit)
+                        write_file.write(f'{decoded_hit_string}\n')
+
+                if last_hit_in_chunk_bool: # takes care of the problem of one hit being split across data read ins
+                    header_length_check_bool, hit_split_across_chunks = header_length_check(single_hit)
+                    if header_length_check_bool:
+                        decoded_hit=decode(single_hit)
+                        decoded_hit_string=','.join(str(x) for x in decoded_hit)
+                        write_file.write(f'{decoded_hit_string}\n')
+                    else:
+                        retained_hit_split_across_chunks=hit_split_across_chunks
+
         
-        if retained_hit_split_across_chunks is not None: # takes care of the problem of one hit being split across data read ins
-            chunk=retained_hit_split_across_chunks+chunk
-
-        hit_indices=find_all_good_header_indexes(chunk)
-        end_indices=np.append(hit_indices[1:],len(chunk))
-
-        for start_index,next_start_index in zip(hit_indices,end_indices):
-            last_hit_in_chunk_bool = start_index==hit_indices[-1]
-
-            single_hit=chunk[start_index:next_start_index]
-            single_hit_hex=single_hit.hex()
-            if header_length_check(single_hit, print_bool=True, last_hit_in_chunk_bool=last_hit_in_chunk_bool)[0]: # right now the only check I know to run, will update with more robust filter function as edge cases are found
-                    decoded_hit=decode(single_hit)
-                    decoded_hit_string=','.join(str(x) for x in decoded_hit)
-                    write_file.write(f'{decoded_hit_string}\n')
-
-            if last_hit_in_chunk_bool: # takes care of the problem of one hit being split across data read ins
-                header_length_check_bool, hit_split_across_chunks = header_length_check(single_hit)
-                if header_length_check_bool:
-                    decoded_hit=decode(single_hit)
-                    decoded_hit_string=','.join(str(x) for x in decoded_hit)
-                    write_file.write(f'{decoded_hit_string}\n')
-                else:
-                    retained_hit_split_across_chunks=hit_split_across_chunks
-        # if 
-    
-        progress_bar.update(1)
+            progress_bar.update(1)
+    except KeyboardInterrupt as KE:
+        print(f'KeyboardInterrupt: {KE}')
 
     read_file.close()
     write_file.close()
