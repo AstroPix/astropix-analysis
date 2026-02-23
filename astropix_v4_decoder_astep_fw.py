@@ -77,12 +77,15 @@ def find_all_good_header_indexes(bytes):
 
     return indices
 
-def filter_function(hit, print_bool:bool = False):
+def header_length_check(hit, print_bool:bool = False, last_hit_in_chunk_bool=False):
+    '''
+    checks for correct length of hit based on header
+    '''
     return_bool=True
 
-    # header length check:
     length_from_header=int(hit[0])+1
-    if length_from_header!=len(hit):
+    hit_split_across_chunks=None
+    if length_from_header!=len(hit) and not last_hit_in_chunk_bool:
         return_bool=False
     
         if len(hit)>=3:
@@ -94,9 +97,12 @@ def filter_function(hit, print_bool:bool = False):
         elif print_bool:
             print(f'Incorrect FPGA Length: {hit.hex()}') # if hit is too short for fpga length and doen't have astropix header (this really shouldn't happen becuause of byte filter)
 
+    elif length_from_header!=len(hit) and last_hit_in_chunk_bool: # takes care of the problem of one hit being split across data read ins
+        return_bool=False
+        hit_split_across_chunks=hit
+    
 
-
-    return return_bool
+    return return_bool, hit_split_across_chunks
 
 def main(args):
     chunk_size=1024
@@ -123,6 +129,7 @@ def main(args):
     row_0_string=','.join(row_0_list)
     write_file.write(f'{row_0_string}\n')
 
+    retained_hit_split_across_chunks=None
 
     # main running loop
     while True:
@@ -130,16 +137,31 @@ def main(args):
         if not chunk:
             break
         
+        if retained_hit_split_across_chunks is not None: # takes care of the problem of one hit being split across data read ins
+            chunk=retained_hit_split_across_chunks+chunk
+
         hit_indices=find_all_good_header_indexes(chunk)
         end_indices=np.append(hit_indices[1:],len(chunk))
 
         for start_index,next_start_index in zip(hit_indices,end_indices):
+            last_hit_in_chunk_bool = start_index==hit_indices[-1]
+
             single_hit=chunk[start_index:next_start_index]
             single_hit_hex=single_hit.hex()
-            if filter_function(single_hit, print_bool=True):
-                decoded_hit=decode(single_hit)
-                decoded_hit_string=','.join(str(x) for x in decoded_hit)
-                write_file.write(f'{decoded_hit_string}\n')
+            if header_length_check(single_hit, print_bool=True, last_hit_in_chunk_bool=last_hit_in_chunk_bool)[0]: # right now the only check I know to run, will update with more robust filter function as edge cases are found
+                    decoded_hit=decode(single_hit)
+                    decoded_hit_string=','.join(str(x) for x in decoded_hit)
+                    write_file.write(f'{decoded_hit_string}\n')
+
+            if last_hit_in_chunk_bool: # takes care of the problem of one hit being split across data read ins
+                header_length_check_bool, hit_split_across_chunks = header_length_check(single_hit)
+                if header_length_check_bool:
+                    decoded_hit=decode(single_hit)
+                    decoded_hit_string=','.join(str(x) for x in decoded_hit)
+                    write_file.write(f'{decoded_hit_string}\n')
+                else:
+                    retained_hit_split_across_chunks=hit_split_across_chunks
+        # if 
     
         progress_bar.update(1)
 
