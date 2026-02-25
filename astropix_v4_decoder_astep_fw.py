@@ -1,9 +1,5 @@
-import os
 import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import scipy as sp
 import argparse
 from datetime import datetime
 
@@ -27,7 +23,7 @@ def gray_to_dec(gray: int) -> int:
             bits >>= 1
         return gray
 
-def decode(hit, sample_clock_period_ns: int = 5, use_negedge_ts: bool = True): #sample_clock_period_ns 5 or 25?
+def decode(hit, sample_clock_period_ns: int = 5, use_negedge_ts: bool = True): # sample_clock_period_ns 5 or 25?
     pack_len    = int(hit[0])
     layer       = int(hit[1])
     id          = int(hit[2]) >> 3
@@ -56,57 +52,27 @@ def decode(hit, sample_clock_period_ns: int = 5, use_negedge_ts: bool = True): #
     hit_data=[pack_len, layer, id, payload, row, col, tsneg1, ts1, tsfine1, tstdc1, tsneg2, ts2, tsfine2, tstdc2, ts1_dec, ts2_dec, tot_us, fpga_ts]
     return hit_data
 
-def find_all_good_header_indexes(bytes):
+def find_first_good_header_index(byte_data):
     # for now going to check that the start is 0d and then 01, 02, or 03, then xxxxx111 for any ChipID and astropix payload=7
-    # byte_filter=11111111_11111000_00000111
+    # byte_filter = 11111111_11111000_00000111
     filter_bitstring = '11111111_11111000_00000111'.replace('_', '')
-    filter = int(filter_bitstring, 2).to_bytes(3,'big')
-    b'\r\x00\x07'
+    mask = int(filter_bitstring, 2).to_bytes(3, 'big')
+    target = b'\r\x00\x07'
 
-    data = np.frombuffer(bytes, dtype=np.uint8)
-    x = np.frombuffer(filter, dtype=np.uint8)
-    b = np.frombuffer(b'\r\x00\x07', dtype=np.uint8)
+    data = np.frombuffer(byte_data, dtype=np.uint8)
+    mask_arr = np.frombuffer(mask, dtype=np.uint8)
+    target_arr = np.frombuffer(target, dtype=np.uint8)
 
-    # Create sliding windows of shape (N-2, 3)
-    windows = np.lib.stride_tricks.sliding_window_view(data, 3)
+    n = len(data)
 
-    # Apply condition
-    matches = np.all((windows & x) == b, axis=1)
+    for i in range(n - 2): # Stops at first match
+        if ((data[i:i+3] & mask_arr) == target_arr).all():
+            return i
 
-    indices = np.nonzero(matches)[0]
-
-    return indices
-
-def header_length_check(hit, print_bool:bool = False, last_hit_in_chunk_bool=False):
-    '''
-    checks for correct length of hit based on header
-    '''
-    return_bool=True
-
-    length_from_header=int(hit[0])+1
-    hit_split_across_chunks=None
-    if length_from_header!=len(hit) and not last_hit_in_chunk_bool:
-        return_bool=False
-    
-        if len(hit)>=3:
-            length_from_astropix=int(hit[2]) & 0b111
-            if len(hit)<length_from_astropix+2+1 and print_bool: # plus 2 for FPGA wrapper start and plus 1 for astropix header byte
-                    print(f'Incorrect Astropix Length: {hit.hex()}')
-            elif print_bool:
-                print(f'Incorrect FPGA Length: {hit.hex()}') # if hit has enough for astropix hit but is too long for fpga length
-        elif print_bool:
-            print(f'Incorrect FPGA Length: {hit.hex()}') # if hit is too short for fpga length and doen't have astropix header (this really shouldn't happen becuause of byte filter)
-
-    elif length_from_header!=len(hit) and last_hit_in_chunk_bool: # takes care of the problem of one hit being split across data read ins
-        return_bool=False
-        hit_split_across_chunks=hit
-    
-
-    return return_bool, hit_split_across_chunks
+    return -1  # no match
 
 def main(args):
     chunk_size=1024
-
 
     start_time=datetime.now()
     print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
@@ -141,36 +107,27 @@ def main(args):
             if retained_hit_split_across_chunks is not None: # takes care of the problem of one hit being split across data read ins
                 chunk=retained_hit_split_across_chunks+chunk
 
-            hit_indices=find_all_good_header_indexes(chunk)
-            end_indices=np.append(hit_indices[1:],len(chunk))
+            good_index=find_first_good_header_index(chunk)
+            continue_bool=True
+            while continue_bool:
+                len_hit=chunk[good_index]
+                decoded_hit=decode(chunk[good_index:good_index+len_hit+1])
+                decoded_hit_string=','.join(str(x) for x in decoded_hit)
+                write_file.write(f'{decoded_hit_string}\n')
+                good_index+=((len_hit+1)+find_first_good_header_index(chunk[(good_index+len_hit+1):]))
+                if len(chunk[good_index:])<len_hit:
+                    retained_hit_split_across_chunks=chunk[good_index:]
+                    continue_bool=False
+                if good_index==-1:
+                    continue_bool=False
 
-            for start_index,next_start_index in zip(hit_indices,end_indices):
-                last_hit_in_chunk_bool = start_index==hit_indices[-1]
-
-                single_hit=chunk[start_index:next_start_index]
-                single_hit_hex=single_hit.hex()
-                if header_length_check(single_hit, print_bool=True, last_hit_in_chunk_bool=last_hit_in_chunk_bool)[0]: # right now the only check I know to run, will update with more robust filter function as edge cases are found
-                        decoded_hit=decode(single_hit)
-                        decoded_hit_string=','.join(str(x) for x in decoded_hit)
-                        write_file.write(f'{decoded_hit_string}\n')
-
-                if last_hit_in_chunk_bool: # takes care of the problem of one hit being split across data read ins
-                    header_length_check_bool, hit_split_across_chunks = header_length_check(single_hit)
-                    if header_length_check_bool:
-                        decoded_hit=decode(single_hit)
-                        decoded_hit_string=','.join(str(x) for x in decoded_hit)
-                        write_file.write(f'{decoded_hit_string}\n')
-                    else:
-                        retained_hit_split_across_chunks=hit_split_across_chunks
-
-        
             progress_bar.update(1)
+
     except KeyboardInterrupt as KE:
         print(f'KeyboardInterrupt: {KE}')
 
     read_file.close()
     write_file.close()
-
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(
@@ -186,6 +143,3 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     main(args)
-
-
-
