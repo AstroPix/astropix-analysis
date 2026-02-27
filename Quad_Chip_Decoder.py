@@ -163,10 +163,11 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
 
                 for dec_ord, one_right_header_index in enumerate(list_of_right_header_indexes):
                     hit=no_ff_string[one_right_header_index:one_right_header_index+22]
-                    decoded_hit=decode_astep_hit(hit,line_counter,dec_ord)
-                    write_string=','.join(str(x) for x in decoded_hit)
-                    write_file.write(f'{write_string}\n')
-                    decoded_list.append(decoded_hit)
+                    if len(hit)==22:
+                        decoded_hit=decode_astep_hit(hit,line_counter,dec_ord)
+                        write_string=','.join(str(x) for x in decoded_hit)
+                        write_file.write(f'{write_string}\n')
+                        decoded_list.append(decoded_hit)
 
 
         line_counter+=1
