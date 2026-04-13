@@ -96,6 +96,7 @@ def get_bin_file_size(filename):
 
 def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_file, is_bin=False):
     decoded_list=[]
+    length_decoded=0
     if is_bin:
         if stored_split_first_part is not None:
                 full_line=stored_split_first_part+full_line
@@ -124,6 +125,7 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
                         write_string=','.join(str(x) for x in decoded_hit)
                         write_file.write(f'{write_string}\n')
                         decoded_list.append(decoded_hit)
+                        length_decoded+=len(hit)
 
 
 
@@ -171,7 +173,7 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
 
 
         line_counter+=1
-    return decoded_list, stored_split_first_part, line_counter
+    return decoded_list, stored_split_first_part, line_counter, length_decoded
 
 def main(args):
 
@@ -205,6 +207,7 @@ def main(args):
 
     stored_split_first_part=None
     line_counter=0
+    total_length_decoded=0
     chunk_size=1024
 
     if is_bin_file:
@@ -217,20 +220,26 @@ def main(args):
             chunk = read_file.read(chunk_size)
             if not chunk:
                 break
-            decoded_hit_list, stored_split_first_part, line_counter = Decode_and_Write_Line(chunk,stored_split_first_part,line_counter,write_file,is_bin=True)#send data here
+            decoded_hit_list, stored_split_first_part, line_counter, single_chunk_length_decoded = Decode_and_Write_Line(chunk,stored_split_first_part,line_counter,write_file,is_bin=True)#send data here
+            total_length_decoded+=single_chunk_length_decoded
             progress_bar.update(1)
     else: 
         for full_line in read_file:#increment line_counter
             progress_bar.update(1)
         #read_file.read(line_counter) ??
         #data=read_file.read(...)
-            decoded_hit_list, stored_split_first_part, line_counter = Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_file,is_bin=False)#send data here
+            decoded_hit_list, stored_split_first_part, line_counter, single_chunk_length_decoded = Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_file,is_bin=False)#send data here
 
     read_file.close()
     write_file.close()
     finish_time=datetime.now()
     elapsed_time=finish_time-start_time
     print(f'Finish Time: {datetime.strftime(finish_time,"%Y-%m-%d   %H:%M:%S")} \n Time Elapsed: {elapsed_time.days} days, {elapsed_time.seconds // 3600} hours, {(elapsed_time.seconds % 3600) // 60} minutes, {elapsed_time.seconds % 60} seconds')
+    if is_bin_file:
+        print('\n')
+        print(f'Total number of bytes in binary file: {bin_file_size}')
+        print(f'Total number of decoded bytes: {total_length_decoded}')
+        print(f'Percentage decoded: {round((total_length_decoded/bin_file_size)*100,2)}%')
 
 if __name__ == "__main__":
 
