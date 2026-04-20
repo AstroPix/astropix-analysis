@@ -101,7 +101,7 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
         if stored_split_first_part is not None:
                 full_line=stored_split_first_part+full_line
         
-        list_of_right_header_indexes=find_all_indexes(full_line,[bytes.fromhex("0a01"),bytes.fromhex("0a02"),bytes.fromhex("0a03")])
+        list_of_right_header_indexes=find_all_indexes(full_line,[bytes.fromhex("0a01"),bytes.fromhex("0a0e"),bytes.fromhex("0a0f")])
         if list_of_right_header_indexes.size!=0:
             difference_list=diff_consecutive(list_of_right_header_indexes)
             mask_list=difference_list>=11
@@ -149,7 +149,7 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
                     no_ff_list.append(j)
             no_ff_string=''.join(no_ff_list)
 
-            list_of_right_header_indexes=find_all_indexes(no_ff_string,['0a01','0a02','0a03'])
+            list_of_right_header_indexes=find_all_indexes(no_ff_string,['0a01','0a0e','0a0f'])
             if len(list_of_right_header_indexes)>0:
                 difference_list=diff_consecutive(list_of_right_header_indexes)
                 mask_list=difference_list>=22

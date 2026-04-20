@@ -2,6 +2,13 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <stdexcept>
+
+bool stobool(std::string tmp) {
+  if (tmp == "1" || tmp == "true" || tmp == "True") return true;
+  if (tmp == "0" || tmp == "false" || tmp == "False") return false;
+  throw std::invalid_argument(std::string("stobool: no conversion for ")+tmp);
+}
 
 std::vector<HalfHit> CSVReader::readHalfHits(const std::string& filename) {
     std::vector<HalfHit> data;
@@ -20,12 +27,16 @@ std::vector<HalfHit> CSVReader::readHalfHits(const std::string& filename) {
         HalfHit h;
         std::string tmp;
 
+        std::getline(ss, tmp, ','); // Skip line number
+        std::getline(ss, tmp, ','); // Skip line readout
         std::getline(ss, tmp, ','); h.layer = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.chipID = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.payload = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.location = std::stoi(tmp);
-        std::getline(ss, tmp, ','); h.isCol = std::stoi(tmp);
+        std::getline(ss, tmp, ','); h.isCol = stobool(tmp);
         std::getline(ss, tmp, ','); h.timestamp = std::stoi(tmp);
+        std::getline(ss, tmp, ','); // Skip ToT MSB
+        std::getline(ss, tmp, ','); // Skip ToT LSB
         std::getline(ss, tmp, ','); h.tot_total = std::stoi(tmp);
         std::getline(ss, tmp, ','); h.tot_us = std::stod(tmp);
         std::getline(ss, tmp, ','); h.fpga_ts = std::stoll(tmp);
@@ -47,12 +58,14 @@ void CSVWriter::writeMatchedHits(
     }
 
     // Header
-    file << "layer,chipID,row,col,row_timestamp,col_timestamp,"
+    file << ",layer,chipID,row,col,row_timestamp,col_timestamp,"
          << "row_tot,col_tot,row_tot_us,col_tot_us,"
          << "row_fpga_ts,col_fpga_ts\n";
 
-    for (const auto& h : hits) {
-        file << h.layer << ","
+    for (std::size_t i = 0; i < hits.size(); ++i) {
+        auto const& h = hits[i];
+        file << i << ","
+             << h.layer << ","
              << h.chipID << ","
              << h.row << ","
              << h.col << ","

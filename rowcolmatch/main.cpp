@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <string>
 #include <cstring>
@@ -69,7 +70,7 @@ int main(int argc, char* argv[]) {
             100.0 * dataf.size() / data.size();
         std::cout << data.size() << " decoded halfhits read, "
                   << dataf.size() << " valid ("
-                  << pct << "%)\n";
+                  << std::fixed << std::setprecision(2) << pct << "%)\n";
     }
 
     std::vector<MatchedHit> allMatches;
@@ -84,8 +85,8 @@ int main(int argc, char* argv[]) {
 
             auto matches = rowcolmatch(
                 datac,
-                [&](int x, int y) { return x - y >= mints && x - y <= maxts; },
-                [&](int x, int y) { return x - y >= mintot && x - y <= maxtot; }
+                [&](int x, int y) { return (x - y) >= mints && (x - y) <= maxts; },
+                [&](int x, int y) { return (x - y) >= mintot && (x - y) <= maxtot; }
             );
 
             if (!quiet) {
@@ -98,7 +99,7 @@ int main(int argc, char* argv[]) {
                           << " halfhits found, "
                           << matches.size()
                           << " hits matched ("
-                          << pct << "%)\n";
+                          << std::fixed << std::setprecision(2) << pct << "%)\n";
             }
 
             allMatches.insert(allMatches.end(),
