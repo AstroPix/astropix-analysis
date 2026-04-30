@@ -177,8 +177,9 @@ def Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_f
 
 def main(args):
 
-    start_time=datetime.now()
-    print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
+    if not args.quiet:
+        start_time=datetime.now()
+        print(f'\nStart Time: {datetime.strftime(start_time,"%Y-%m-%d   %H:%M:%S")}\n')
 
     full_file_name=args.name
     is_bin_file=args.bin
@@ -186,10 +187,12 @@ def main(args):
     if is_bin_file:
         bin_file_size=get_bin_file_size(full_file_name)
         # print(f'{full_file_name} \n Size of File={bin_file_size/1024}KB\n')
-        print(f'{full_file_name} \n Size of File={round(bin_file_size/1024/1024,2)}MB\n')
+        if not args.quiet:
+            print(f'{full_file_name} \n Size of File={round(bin_file_size/1024/1024,2)}MB\n')
     else:
         total_lines=count_lines(full_file_name)
-        print(f'{full_file_name} \n Lines={total_lines}\n')
+        if not args.quiet:
+            print(f'{full_file_name} \n Lines={total_lines}\n')
 
     if is_bin_file:
         read_file=open(full_file_name,'rb')
@@ -210,9 +213,9 @@ def main(args):
     total_length_decoded=0
     chunk_size=1024
 
-    if is_bin_file:
+    if is_bin_file and not args.quiet:
         progress_bar=tqdm.tqdm(total=int(bin_file_size/chunk_size)+1)
-    if not is_bin_file:
+    if not is_bin_file and not args.quiet:
         progress_bar=tqdm.tqdm(total=total_lines)
 
     if is_bin_file:
@@ -222,20 +225,23 @@ def main(args):
                 break
             decoded_hit_list, stored_split_first_part, line_counter, single_chunk_length_decoded = Decode_and_Write_Line(chunk,stored_split_first_part,line_counter,write_file,is_bin=True)#send data here
             total_length_decoded+=single_chunk_length_decoded
-            progress_bar.update(1)
+            if not args.quiet:
+                progress_bar.update(1)
     else: 
         for full_line in read_file:#increment line_counter
-            progress_bar.update(1)
+            if not args.quiet:
+                progress_bar.update(1)
         #read_file.read(line_counter) ??
         #data=read_file.read(...)
             decoded_hit_list, stored_split_first_part, line_counter, single_chunk_length_decoded = Decode_and_Write_Line(full_line,stored_split_first_part,line_counter,write_file,is_bin=False)#send data here
 
     read_file.close()
     write_file.close()
-    finish_time=datetime.now()
-    elapsed_time=finish_time-start_time
-    print(f'Finish Time: {datetime.strftime(finish_time,"%Y-%m-%d   %H:%M:%S")} \n Time Elapsed: {elapsed_time.days} days, {elapsed_time.seconds // 3600} hours, {(elapsed_time.seconds % 3600) // 60} minutes, {elapsed_time.seconds % 60} seconds')
-    if is_bin_file:
+    if not args.quiet:
+        finish_time=datetime.now()
+        elapsed_time=finish_time-start_time
+        print(f'Finish Time: {datetime.strftime(finish_time,"%Y-%m-%d   %H:%M:%S")} \n Time Elapsed: {elapsed_time.days} days, {elapsed_time.seconds // 3600} hours, {(elapsed_time.seconds % 3600) // 60} minutes, {elapsed_time.seconds % 60} seconds')
+    if is_bin_file and not args.quiet:
         print('\n')
         print(f'Total number of bytes in binary file: {bin_file_size}')
         print(f'Total number of decoded bytes: {total_length_decoded}')
@@ -248,6 +254,7 @@ if __name__ == "__main__":
                     help='Name of input .log file')
     parser.add_argument('-b','--bin', required=False, type=bool, default=False,
                         help='True if using a binary file as the input, default false for .log file as input')
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppresses output")
 
 
     parser.add_argument
