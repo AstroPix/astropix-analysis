@@ -3,32 +3,30 @@ import struct
 import argparse
 import re
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-def convertBytestoTemperature(rawTemp: bytearray, precision: int = 2) -> float:
+def convertBytestoTemperature(rawTemp: bytearray) -> float:
     rawTemp = (int.from_bytes(rawTemp,'little')) >> 4
-    floatTemp =  rawTemp * 503.975 / 4096 - 273.15
-    return np.round(floatTemp,precision)
+    return  rawTemp * 503.975 / 4096 - 273.15
 
-def convertBytesToVCCInt(rawVcc: bytearray, precision: int = 2) -> float :
+def convertBytesToVCCInt(rawVcc: bytearray) -> float :
     rawVcc = (int.from_bytes(rawVcc,'little')) >> 4
-    floatVcc = rawVcc / 4096 * 3
-    return np.round(floatVcc, precision)
+    return rawVcc / 4096 * 3
 
 def convertBytesToADCVal(rawADC: bytearray) -> float:
     return int.from_bytes(rawADC,'big') / 4096 * 3.3
 
-def decode(packet: bytearray):
+def decode(packet: bytearray, precision: int = 2):
     """ Housekeeping Packet Format:
         8 Bytes FSW UTC Time
         4 Bytes FPGA Counter Time
         18 Bytes ADC: 2 Sync Bytes (\x10\x10) + 2 Bytes per 8 Channels
         14 Bytes FPGA: 2 Sync Bytes (\x0c\x0c) + 3 FPGA Temp Reads + 3 FPGA VCC Reads
         0x to 3x: 14 Bytes FPGA Counter: 2 Bytes Layer ID (e.g. Layer 2 = \x02\x02), 4 Bytes each Frame, Idle, Wronglength Counter"""
-    fswtime = datetime.fromtimestamp(struct.unpack('d',packet[0:7])[0],tz=timezone.utc)
-    fpgatime = int.from_bytes(packet[8:11],'little')
+    fswtime = datetime.fromtimestamp(struct.unpack('d',packet[0:8])[0],tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    fpgatime = int.from_bytes(packet[8:12],'little')
     
-    ADCvalues = [convertBytesToADCVal(packet[14:29][i : i + 2]) for i in range(0,16,2)]
+    ADCvalues = [convertBytesToADCVal(packet[14:30][i : i + 2]) for i in range(0,16,2)]
     L0Temp = ADCvalues[3] # missing calibration
     L1Temp = ADCvalues[2] # missing calibration
     L2Temp = ADCvalues[1] # missing calibration
@@ -38,8 +36,8 @@ def decode(packet: bytearray):
     L1Current = ADCvalues[5] / 10.
     L2Current = ADCvalues[6] / 10.
 
-    fpgatemp = np.average([convertBytesToFPGATemperature(packet[32:37][i : i + 2]) for i in range(0, 6, 2)])
-    fpgaVCCInt = np.average([convertBytesToVCCInt(packet[38:43][i : i + 2]) for i in range(0, 6, 2)])
+    fpgatemp = np.round(np.mean([convertBytestoTemperature(packet[32:38][i : i + 2]) for i in range(0, 6, 2)]),precision).item()
+    fpgaVCCInt = np.round(np.mean([convertBytesToVCCInt(packet[38:44][i : i + 2]) for i in range(0, 6, 2)]),precision).item()
 
     counterBytes = packet[44:]
     layerinfo = [counterBytes[i:i+14] for i in range(0,len(counterBytes),14)]
@@ -69,7 +67,7 @@ def identify_index(data):
     """Use pre-defined sync bytes to identify and extract housekeeping indexes"""
     mask_one = b'\x10\x10'
     mask_two = b'\x0c\x0c'
-    pattern = re.compile(re.escape(mask1) + b'.{' + str(16).encode() + b'}' + re.escape(mask2), re.DOTALL)
+    pattern = re.compile(re.escape(mask_one) + b'.{' + str(16).encode() + b'}' + re.escape(mask_two), re.DOTALL)
     matched = re.finditer(pattern,data)
     return [m.start() - 12 for m in matched]
 
@@ -85,7 +83,7 @@ def main(args):
     write_file.write(f'{headerstring}\n')
     
     pkt_indices = identify_index(data)
-    packages = [data[i:j] for i,j in zip([0] + pkt_indices, pkt_indices + [None])]
+    packages = [data[i:j] for i,j in zip([0] + pkt_indices, pkt_indices + [None])][1:]
 
     for p in packages:
         decoded_hit = decode(p)
