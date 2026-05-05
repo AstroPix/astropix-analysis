@@ -2,8 +2,11 @@ import numpy as np
 import struct
 import argparse
 import re
+import time
 
 from datetime import datetime, timezone
+
+from send_data_to_influxdb import Influx_Write
 
 def convertBytestoTemperature(rawTemp: bytearray) -> float:
     rawTemp = (int.from_bytes(rawTemp,'little')) >> 4
@@ -23,7 +26,7 @@ def decode(packet: bytearray, precision: int = 2):
         18 Bytes ADC: 2 Sync Bytes (\x10\x10) + 2 Bytes per 8 Channels
         14 Bytes FPGA: 2 Sync Bytes (\x0c\x0c) + 3 FPGA Temp Reads + 3 FPGA VCC Reads
         0x to 3x: 14 Bytes FPGA Counter: 2 Bytes Layer ID (e.g. Layer 2 = \x02\x02), 4 Bytes each Frame, Idle, Wronglength Counter"""
-    fswtime = datetime.fromtimestamp(struct.unpack('d',packet[0:8])[0],tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    fswtime = datetime.fromtimestamp(struct.unpack('d',packet[0:8])[0],tz=timezone.utc)#.strftime("%Y-%m-%d %H:%M:%S")
     fpgatime = int.from_bytes(packet[8:12],'little')
     
     ADCvalues = [convertBytesToADCVal(packet[14:30][i : i + 2]) for i in range(0,16,2)]
@@ -78,7 +81,8 @@ def main(args):
     
     write_file=open(args.filename.replace('.bin','.csv'),'w')
     header = ['fswtime','fpgatime','fpgatemp','fpgaVCCInt','SecVolt','HVMon','L0Temp','L1Temp','L2Temp',
-              'L0Current','L1Current','L2Current','L0Frames','L0Idle','L0Wrong','L1Frames','L1Idle','L1Wrong','L2Frames','L2Idle','L2Wrong']
+              'L0Current','L1Current','L2Current','L0Frames','L0Idle','L0Wrong','L1Frames','L1Idle','L1Wrong',
+              'L2Frames','L2Idle','L2Wrong']
     headerstring = ','.join(header)
     write_file.write(f'{headerstring}\n')
     
@@ -87,10 +91,34 @@ def main(args):
 
     for p in packages:
         decoded_hit = decode(p)
+
         decoded_string=','.join(str(x) for x in decoded_hit)
         write_file.write(f'{decoded_string}\n')
 
     write_file.close()
+
+def read_from_offset(file_path, bytes_to_skip):
+    try:
+        with open(file_path, 'rb') as file:
+            file.seek(bytes_to_skip)
+            return file.read()
+    except OSError as e:
+        print(f'Error reading file: {e}')
+        return b''
+
+
+def live_decode(data,write_file,influx_obj):
+    
+    pkt_indices = identify_index(data)
+    packages = [data[i:j] for i,j in zip([0] + pkt_indices, pkt_indices + [None])][1:]
+
+    for p in packages:
+        decoded_hit = decode(p)
+        # print(f'Timestamp from fsw {decoded_hit[0]}, {type(decoded_hit[0])}')
+
+        decoded_string=','.join(str(x) for x in decoded_hit)
+        write_file.write(f'{decoded_string}\n')
+        influx_obj.write_housekeeping_point(*decoded_hit)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(
@@ -103,5 +131,38 @@ if __name__=='__main__':
     )
 
     args = parser.parse_args()
-    main(args)
+    # main(args)
 
+if __name__=='__main__':
+    url = 'http://localhost:8086'
+    # bucket = 'ASTEP_Testing_2'
+    # bucket = 'ASTEP_Temperature_Chamber_Data_Test'
+    # bucket = 'ASTEP_Temperature_Chamber_Data_Test_2'
+    bucket = 'ASTEP_Temperature_Chamber_Data_05-06-2026'
+    org = 'ASTEP'
+    token='ZaAOdbYZXQtsYMSlSRmr4kNaJPsJq2OTlqUgZvkb_5Qk85_DF_8ZZ65K3Zr9w6QzkPTMKu2nA5_78Bzh35kFaA=='
+
+
+    write_file=open(args.filename.replace('.bin','.csv'),'w')
+    header = ['fswtime','fpgatime','fpgatemp','fpgaVCCInt','SecVolt','HVMon','L0Temp','L1Temp','L2Temp',
+              'L0Current','L1Current','L2Current','L0Frames','L0Idle','L0Wrong','L1Frames','L1Idle','L1Wrong','L2Frames','L2Idle','L2Wrong']
+    headerstring = ','.join(header)
+    write_file.write(f'{headerstring}\n')
+
+
+    influx_object=Influx_Write(url=url,org=org,bucket=bucket,api_token=token, write_precision='NS')
+    gobool = True
+    running_file_length=0
+    while gobool:
+        try:
+            time.sleep(10)
+            data=read_from_offset(args.filename, running_file_length)
+            print(f'decoding data of length: {len(data)}')
+            running_file_length+=len(data)
+            if data:
+                live_decode(data,write_file,influx_object)
+                influx_object.send_points_to_influx()
+        except KeyboardInterrupt:
+            gobool = False
+            write_file.close()
+            
