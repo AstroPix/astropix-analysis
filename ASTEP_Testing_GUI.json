@@ -1,0 +1,1814 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 6,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 46,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "const N = 35;\n\nconst frame = context.panel.data.series[0];\n\nif (!frame) {\n  return {\n    title: {\n      text: \"No data returned\"\n    }\n  };\n}\n\nconst rowField = frame.fields.find(f => f.name === \"live_row\");\nconst colField = frame.fields.find(f => f.name === \"live_col\");\nconst valueField =\n  frame.fields.find(f => f.name === \"_value\") ||\n  frame.fields.find(f => f.name === \"live_value\");\n\nif (!rowField || !colField || !valueField) {\n  return {\n    title: {\n      text: \"Missing live_row, live_col, or value field\"\n    }\n  };\n}\n\nfunction getVal(field, i) {\n  return field.values.get ? field.values.get(i) : field.values[i];\n}\n\nlet heatmapData = [];\n\nfor (let i = 0; i < valueField.values.length; i++) {\n  const r = Number(getVal(rowField, i));\n  const c = Number(getVal(colField, i));\n  const v = Number(getVal(valueField, i));\n\n  heatmapData.push([c, r, v]);\n}\n\nconst maxValue = Math.max(...heatmapData.map(p => Number(p[2])), 1);\nconst countThreshold = maxValue * 0.85;\nconst hotPixels = heatmapData\n  .filter(p => Number(p[2]) >= countThreshold)\n  .map(p => [p[0], p[1], p[2]]);\n\nreturn {\n\n  animation: false,\n\n\n  tooltip: {\n    trigger: \"item\",\n    formatter: function (p) {\n      return \"Row: \" + p.value[1] +\n        \"<br>Col: \" + p.value[0] +\n        \"<br>Value: \" + p.value[2];\n    }\n  },\n\n  xAxis: {\n    type: 'category',\n    name: \"Col\",\n    data: Array.from({ length: N }, (_, i) => i),\n    splitArea: { show: true },\n    axisLine: { show: true }\n  },\n  yAxis: {\n    type: 'category',\n    name: \"Row\",\n    data: Array.from({ length: N }, (_, i) => i),\n    splitArea: { show: true },\n    inverse: false,\n    axisLine: { show: true }\n  },\n  grid: {\n    left: 60,\n    right: 100,\n    top: 40,\n    bottom: 40,\n    containLabel: true,\n  },\n\n  visualMap: {\n    min: 0,\n    max: Math.max(maxValue * 0.7, 1),\n    calculable: true,\n    orient: \"vertical\",\n    right: 10,\n    top: \"middle\",\n\n    inRange: {\n      color: [\n        \"#440154\",\n        \"#3b528b\",\n        \"#21918c\",\n        \"#5ec962\",\n        \"#fde725\"\n      ]\n    }\n  },\n  series: [\n    {\n      name: \"Activity\",\n      type: \"heatmap\",\n      data: heatmapData,\n      label: { show: false }\n    },\n    {\n      name: \"Hot_Pixels\",\n      type: \"scatter\",\n      data: hotPixels,\n      symbol: \"rect\",\n      symbolSize: 13,\n      itemStyle: {\n        color: \"transparent\",\n        borderColor: \"#ff0000\",\n        borderWidth: 2\n      },\n      tooltip: { show: false }    \n    }\n  ]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.2.2",
+      "targets": [
+        {
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: -15s)\r\n  |> filter(fn: (r) => r._measurement == \"activity_grid\")\r\n  |> filter(fn: (r) => r._field == \"live_value\")\r\n  |> filter(fn: (r) => r.live_chip == \"${live_chip}\")\r\n  |> group(columns: [\"live_row\", \"live_col\"])\r\n  |> last()\r\n  |> group()",
+          "refId": "A"
+        }
+      ],
+      "title": "Test",
+      "type": "volkovlabs-echarts-panel"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Wrong Counts",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 27,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "query": "  from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) =>\r\n    r._measurement == \"Housekeeping_Point\" and \r\n    (r._field == \"L0Wrong\" or r._field == \"L1Wrong\" or r._field == \"L2Wrong\")\r\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer Wrong Counts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Low Voltage (V)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 5,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/CB_*/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisLabel",
+                "value": "High Voltage (V)"
+              }
+            ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "CB_Volt"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "query": "  from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) =>\r\n    r._measurement == \"Housekeeping_Point\" and \r\n    (r._field == \"FPGA_VCCInt\" or r._field == \"HV_Set\" or r._field == \"Sec._Voltage\" or r._field == \"CB_Volt\" or r._field == \"DAC_Volt\")\r\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "FPGA, Sec, HVmon, and DMM Voltages",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 45,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "const N = 35;\n\nconst frame = context.panel.data.series[0];\n\nif (!frame) {\n  return {\n    title: {\n      text: \"No data returned\"\n    }\n  };\n}\n\nconst rowField = frame.fields.find(f => f.name === \"live_row\");\nconst colField = frame.fields.find(f => f.name === \"live_col\");\nconst valueField =\n  frame.fields.find(f => f.name === \"_value\") ||\n  frame.fields.find(f => f.name === \"live_value\");\n\nif (!rowField || !colField || !valueField) {\n  return {\n    title: {\n      text: \"Missing live_row, live_col, or value field\"\n    }\n  };\n}\n\nfunction getVal(field, i) {\n  return field.values.get ? field.values.get(i) : field.values[i];\n}\n\nlet heatmapData = [];\n\nfor (let i = 0; i < valueField.values.length; i++) {\n  const r = Number(getVal(rowField, i));\n  const c = Number(getVal(colField, i));\n  const v = Number(getVal(valueField, i));\n\n  heatmapData.push([c, r, v]);\n}\n\nconst maxValue = Math.max(...heatmapData.map(p => p[2]), 1);\nconst hotspotThreshold = maxValue * 0.85;\n\nreturn {\n\n  animation: false,\n\n\n  tooltip: {\n    trigger: \"item\",\n    formatter: function (p) {\n      return \"Row: \" + p.value[1] +\n        \"<br>Col: \" + p.value[0] +\n        \"<br>Value: \" + p.value[2];\n    }\n  },\n\n  xAxis: {\n    type: 'category',\n    name: \"Col\",\n    data: Array.from({ length: N }, (_, i) => i),\n    splitArea: { show: true },\n    axisLine: { show: true }\n  },\n  yAxis: {\n    type: 'category',\n    name: \"Row\",\n    data: Array.from({ length: N }, (_, i) => i),\n    splitArea: { show: true },\n    inverse: false,\n    axisLine: { show: true }\n  },\n  grid: {\n    left: 60,\n    right: 100,\n    top: 40,\n    bottom: 40,\n    containLabel: true,\n  },\n\n  visualMap: {\n    min: 0,\n    max: Math.max(maxValue * 0.7, 1),\n    calculable: true,\n    orient: \"vertical\",\n    right: 10,\n    top: \"middle\",\n\n    inRange: {\n      color: [\n        \"#440154\",\n        \"#3b528b\",\n        \"#21918c\",\n        \"#5ec962\",\n        \"#fde725\"\n      ]\n    }\n  },\n  series: [{\n    name: \"Activity\",\n    type: \"heatmap\",\n    data: heatmapData,\n\n    itemStyle: {\n      borderColor: \"#404040\",\n      borderWidth: 0.5\n    },\n\n    emphasis: {\n      itemStyle: {\n        borderColor: \"#FFFFFF\",\n        borderWidth: 2\n      }\n    },\n\n    label: {\n      show: false\n    }\n  }]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.2.2",
+      "targets": [
+        {
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: -15s)\r\n  |> filter(fn: (r) => r._measurement == \"activity_grid\")\r\n  |> filter(fn: (r) => r._field == \"live_value\")\r\n  |> filter(fn: (r) => r.live_chip == \"${live_chip}\")\r\n  |> group(columns: [\"live_row\", \"live_col\"])\r\n  |> last()\r\n  |> group()",
+          "refId": "A"
+        }
+      ],
+      "title": "Working Live Readout",
+      "type": "volkovlabs-echarts-panel"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Layer Current (A)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "query": "  from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) =>\r\n    r._measurement == \"Housekeeping_Point\" and \r\n    (r._field == \"L0Current\" or r._field == \"L1Current\" or r._field == \"L2Current\")\r\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer Currents",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 44,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "const N = 35;\n\nconst frame = context.panel.data.series[0];\n\nif (!frame) {\n  return {\n    title: {\n      text: \"No data returned\"\n    }\n  };\n}\n\nconst rowField = frame.fields.find(f => f.name === \"live_row\");\nconst colField = frame.fields.find(f => f.name === \"live_col\");\nconst valueField =\n  frame.fields.find(f => f.name === \"_value\") ||\n  frame.fields.find(f => f.name === \"live_value\");\n\nif (!rowField || !colField || !valueField) {\n  return {\n    title: {\n      text: \"Missing live_row, live_col, or value field\"\n    }\n  };\n}\n\nfunction getVal(field, i) {\n  return field.values.get ? field.values.get(i) : field.values[i];\n}\n\nlet heatmapData = [];\n\nfor (let i = 0; i < valueField.values.length; i++) {\n  const r = Number(getVal(rowField, i));\n  const c = Number(getVal(colField, i));\n  const v = Number(getVal(valueField, i));\n\n  heatmapData.push([c, r, v]);\n}\n\nconst maxValue = Math.max(...heatmapData.map(p => p[2]), 1);\n\nreturn {\n\n  animation: false,\n\n\n  tooltip: {\n    trigger: \"item\",\n    formatter: function (p) {\n      return \"Row: \" + p.value[1] +\n        \"<br>Col: \" + p.value[0] +\n        \"<br>Value: \" + p.value[2];\n    }\n  },\n\n  xAxis: {\n    type: 'category',\n    name: \"Col\",\n    data: Array.from({ length: N }, (_, i) => i),\n    splitArea: { show: true },\n    axisLine: { show: true }\n  },\n  yAxis: {\n    type: 'category',\n    name: \"Row\",\n    data: Array.from({ length: N }, (_, i) => i),\n    splitArea: { show: true },\n    inverse: false,\n    axisLine: { show: true }\n  },\n  grid: {\n    left: 60,\n    right: 100,\n    top: 40,\n    bottom: 40,\n    containLabel: true,\n  },\n\n  visualMap: {\n    min: 0,\n    max: Math.max(maxValue * 0.7, 1),\n    calculable: true,\n    orient: \"vertical\",\n    right: 10,\n    top: \"middle\",\n\n    inRange: {\n      color: [\n        \"#440154\",\n        \"#3b528b\",\n        \"#21918c\",\n        \"#5ec962\",\n        \"#fde725\"\n      ]\n    }\n  },\n  series: [{\n    name: \"Activity\",\n    type: \"heatmap\",\n    data: heatmapData,\n\n    itemStyle: {\n      borderColor: \"#404040\",\n      borderWidth: 0.5\n    },\n\n    emphasis: {\n      itemStyle: {\n        borderColor: \"#FFFFFF\",\n        borderWidth: 2\n      }\n    },\n\n    label: {\n      show: false\n    }\n  }]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.2.2",
+      "targets": [
+        {
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"activity_grid\")\r\n  |> filter(fn: (r) => r._field == \"live_value\")\r\n  |> filter(fn: (r) => r.live_chip == \"${live_chip}\")\r\n  |> group(columns: [\"live_row\", \"low_col\"])\r\n  |> last()\r\n  |> group()",
+          "refId": "A"
+        }
+      ],
+      "title": "Quad Chip Live Readout",
+      "type": "volkovlabs-echarts-panel"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 18
+      },
+      "id": 36,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"0\" and r.Chip == \"0\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 0 Chip 0",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 18
+      },
+      "id": 32,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"0\" and r.Chip == \"1\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 0 Chip 1",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 21
+      },
+      "id": 33,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"0\" and r.Chip == \"2\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 0 Chip 2",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 21
+      },
+      "id": 39,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"0\" and r.Chip == \"3\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 0 Chip 3",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Frame Counts",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/L[0-2]Idle/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisLabel",
+                "value": "Idle Counts"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "query": "  from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) =>\r\n    r._measurement == \"Housekeeping_Point\" and \r\n    (r._field == \"L0Frames\" or r._field == \"L0Idle\" or r._field == \"L1Frames\" or r._field == \"L1Idle\" or r._field == \"L2Frames\" or r._field == \"L2Idle\")\r\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer Frames and Idle Counts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 24
+      },
+      "id": 35,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"1\" and r.Chip == \"0\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 1 Chip 0",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 24
+      },
+      "id": 38,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"1\" and r.Chip == \"1\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 1 Chip 1",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 27
+      },
+      "id": 34,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"1\" and r.Chip == \"2\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 1 Chip 2",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 27
+      },
+      "id": 37,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"1\" and r.Chip == \"3\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 1 Chip 3",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Temp (C)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/L[0-2]Temp/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisLabel",
+                "value": "Layer Temp"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "query": "  from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) =>\r\n    r._measurement == \"Housekeeping_Point\" and \r\n    (r._field == \"FPGA_Temp\" or r._field == \"Thermo_0\")\r\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "FPGA, and Thermocouple Temps",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 30
+      },
+      "id": 41,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"2\" and r.Chip == \"0\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 2 Chip 0",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 30
+      },
+      "id": 43,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"2\" and r.Chip == \"1\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 2 Chip 1",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 33
+      },
+      "id": 40,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"2\" and r.Chip == \"2\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 2 Chip 2",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 33
+      },
+      "id": 42,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Viridis",
+          "steps": 128
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": false,
+          "showLegend": true
+        },
+        "rowsFrame": {
+          "layout": "unknown",
+          "value": "Counts"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisLabel": "isCol",
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "efc8rzublk3k0d"
+          },
+          "query": "from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"ToT_Point\")\r\n  |> filter(fn: (r) => r.Layer == \"2\" and r.Chip == \"3\")\r\n  |> map(fn: (r) => ({\r\n        r with\r\n        LocationInt: int(v: r.Location),\r\n        IsColInt: int(v: r.IsCol)\r\n  }))\r\n  |> keep(columns: [\"LocationInt\", \"IsColInt\", \"_value\"])\r\n  |> group(columns: [\"LocationInt\",\"IsColInt\"])\r\n  |> count(column: \"_value\")\r\n  |> pivot(\r\n    columnKey:[\"IsColInt\"],\r\n    rowKey:[\"LocationInt\"],\r\n    valueColumn:\"_value\"\r\n  )\r\n  |> group()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Layer 2 Chip 3",
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "efc8rzublk3k0d"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Temp (C)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/L[0-2]Temp/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisLabel",
+                "value": "Layer Temp"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "query": "  from(bucket: \"ASTEP_Temperature_Chamber_Data_05-06-2026\")\r\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\r\n  |> filter(fn: (r) =>\r\n    r._measurement == \"Housekeeping_Point\" and \r\n    (r._field == \"L0Temp\" or r._field == \"L1Temp\" or r._field == \"L2Temp\" or r._field == \"FPGA_Temp\" or r._field == \"Thermo_0\")\r\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "FPGA, Layer, and Thermocouple Temps",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "description": "",
+        "name": "live_chip",
+        "options": [
+          {
+            "selected": true,
+            "text": "0",
+            "value": "0"
+          },
+          {
+            "selected": false,
+            "text": "1",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "2",
+            "value": "2"
+          },
+          {
+            "selected": false,
+            "text": "3",
+            "value": "3"
+          }
+        ],
+        "query": "0,1,2,3",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ASTEP Testing",
+  "uid": "adgwsb6",
+  "version": 29
+}
