@@ -92,7 +92,7 @@ def test_table():
     """Test the table conversion.
     """
     file_path = ASTROPIX_ANALYSIS_TESTS_DATA / SAMPLE_RUN_ID / f'{SAMPLE_RUN_ID}_data.apx'
-    col_names = ('chip_id', 'row', 'column', 'tot_us', 'readout_id', 'timestamp')
+    col_names = ('chip_id', 'row', 'column', 'tot_us', 'readout_id', 'wall_timestamp')
     with apx_open(file_path) as input_file:
         table = input_file.to_table(col_names)
     print(table)

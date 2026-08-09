@@ -4,7 +4,7 @@
 # - {name: chip_id, datatype: uint8}
 # - {name: payload, datatype: uint8}
 # - {name: readout_id, datatype: uint32}
-# - {name: timestamp, datatype: uint64}
+# - {name: wall_timestamp, datatype: uint64}
 # - {name: decoding_order, datatype: uint8}
 # - {name: row, datatype: uint8}
 # - {name: column, datatype: uint8}
@@ -32,7 +32,7 @@
 #       "yaml": "config_v4_none", "prescale": 25, "saveascsv": false, "inject": [0, 9], "vinj": 250.0, "analog": 9, "threshold": 100.0,
 #       "maxruns": null, "maxtime": 1.0, "loglevel": "I"}}']
 # schema: astropy-2.0
-chip_id payload readout_id timestamp decoding_order row column ts_neg1 ts_coarse1 ts_fine1 ts_tdc1 ts_neg2 ts_coarse2 ts_fine2 ts_tdc2 ts_dec1 ts_dec2 tot_us
+chip_id payload readout_id wall_timestamp decoding_order row column ts_neg1 ts_coarse1 ts_fine1 ts_tdc1 ts_neg2 ts_coarse2 ts_fine2 ts_tdc2 ts_dec1 ts_dec2 tot_us
 0 7 0 1753255536707629800 0 0 9 1 12395 3 0 0 13123 0 0 66157 70639 224.1
 0 7 1 1753255536785609300 0 0 9 1 6699 7 0 1 7480 2 0 40554 45436 244.1
 0 7 2 1753255536861580900 0 0 9 1 1258 7 0 0 3428 0 0 14949 19904 247.75
