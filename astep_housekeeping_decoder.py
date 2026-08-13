@@ -75,7 +75,7 @@ def decode(packet: bytearray, precision: int = 2):
 
     HVtempBytes = packet[63:65]
     rawHVV = int.from_bytes(HVtempBytes,'little')
-    HVtemp = np.round(rawHVV  / 4096 * 1.8 / 2e-3 - 273 ),precision).item()
+    HVtemp = np.round(rawHVV  / 4096 * 1.8 / 2e-3 - 273,precision).item()
 
     hk_data = [fswtime,fpgatime,fpgatemp,fpgaVCCInt,SecVolt,HVMon,L0Temp,L1Temp,L2Temp,HVtemp,
                L0Current,L1Current,L2Current,L0Frames,L0Idle,L0Wrong,L1Frames,L1Idle,L1Wrong,L2Frames,L2Idle,L2Wrong,L0Status,L1Status,L2Status,bufferSize]
