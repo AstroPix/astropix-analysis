@@ -6,7 +6,6 @@ import time
 
 from datetime import datetime, timezone
 
-from send_data_to_influxdb import Influx_Write
 
 def convertBytestoTemperature(rawTemp: bytearray) -> float:
     rawTemp = (int.from_bytes(rawTemp,'little')) >> 4
@@ -122,7 +121,7 @@ def read_from_offset(file_path, bytes_to_skip):
         return b''
 
 
-def live_decode(data,write_file,influx_obj):
+def live_decode(data,write_file=None,influx_obj=None):
     
     pkt_indices = identify_index(data)
     packages = [data[i:j] for i,j in zip([0] + pkt_indices, pkt_indices + [None])][1:]
@@ -132,8 +131,12 @@ def live_decode(data,write_file,influx_obj):
         # print(f'Timestamp from fsw {decoded_hit[0]}, {type(decoded_hit[0])}')
 
         decoded_string=','.join(str(x) for x in decoded_hit)
-        write_file.write(f'{decoded_string}\n')
-        influx_obj.write_housekeeping_point(*decoded_hit)
+        if write_file is not None:
+          write_file.write(f'{decoded_string}\n')
+        else:
+          print(decoded_string)
+        if influx_obj is not None:
+          influx_obj.write_housekeeping_point(*decoded_hit)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(
@@ -149,6 +152,7 @@ if __name__=='__main__':
     # main(args)
 
 if __name__=='__main__':
+    from send_data_to_influxdb import Influx_Write
     url = 'http://localhost:8086'
     # bucket = 'ASTEP_Testing_2'
     # bucket = 'ASTEP_Temperature_Chamber_Data_Test'
