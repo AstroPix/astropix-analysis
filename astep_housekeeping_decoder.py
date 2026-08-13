@@ -25,6 +25,7 @@ def decode(packet: bytearray, precision: int = 2):
         4 Bytes FPGA Counter Time
         18 Bytes ADC: 2 Sync Bytes (\x10\x10) + 2 Bytes per 8 Channels
         14 Bytes FPGA: 2 Sync Bytes (\x0c\x0c) + 3 FPGA Temp Reads + 3 FPGA VCC Reads
+        2 Bytes containing bufferSize (Note, may want to eventually convert to occupancy rather than raw)
         0x to 3x: 14 Bytes FPGA Counter: 2 Bytes Layer ID (e.g. Layer 2 = \x02\x02), 4 Bytes each Frame, Idle, Wronglength Counter
         3 Bytes Layer Status Counters: L0, L1, L2
         2 Bytes of HV Board temp from BB ADC"""
@@ -44,7 +45,10 @@ def decode(packet: bytearray, precision: int = 2):
     fpgatemp = np.round(np.mean([convertBytestoTemperature(packet[32:38][i : i + 2]) for i in range(0, 6, 2)]),precision).item()
     fpgaVCCInt = np.round(np.mean([convertBytesToVCCInt(packet[38:44][i : i + 2]) for i in range(0, 6, 2)]),precision).item()
 
-    counterBytes = packet[44:58]
+    bufferBytes = packet[44:46]
+    bufferSize = int.from_bytes(bufferBytes,'little')
+
+    counterBytes = packet[46:60]
     layerinfo = [counterBytes[i:i+14] for i in range(0,len(counterBytes),14)]
     L0Frames = L0Idle = L0Wrong = 0
     L1Frames = L1Idle = L1Wrong = 0
@@ -64,17 +68,17 @@ def decode(packet: bytearray, precision: int = 2):
             L2Idle = int.from_bytes(l[6:9],'little')
             L2Wrong = int.from_bytes(l[10:13],'little')
 
-    statusBytes = packet[58:61]
+    statusBytes = packet[60:63]
     L0Status = int.from_bytes(statusBytes[0],'little')
     L1Status = int.from_bytes(statusBytes[1],'little')
     L2Status = int.from_bytes(statusBytes[2],'little')
 
-    HVtempBytes = packet[61:63]
+    HVtempBytes = packet[63:65]
     rawHVV = int.from_bytes(HVtempBytes,'little')
     HVtemp = np.round(rawHVV  / 4096 * 1.8 / 2e-3 - 273 ),precision).item()
 
     hk_data = [fswtime,fpgatime,fpgatemp,fpgaVCCInt,SecVolt,HVMon,L0Temp,L1Temp,L2Temp,HVtemp,
-               L0Current,L1Current,L2Current,L0Frames,L0Idle,L0Wrong,L1Frames,L1Idle,L1Wrong,L2Frames,L2Idle,L2Wrong,L0Status,L1Status,L2Status]
+               L0Current,L1Current,L2Current,L0Frames,L0Idle,L0Wrong,L1Frames,L1Idle,L1Wrong,L2Frames,L2Idle,L2Wrong,L0Status,L1Status,L2Status,bufferSize]
     return hk_data
 
 def identify_index(data):
