@@ -2,7 +2,7 @@ import os, subprocess, argparse
 from datetime import datetime
 import tqdm
 import matplotlib.pyplot as plt
-from matplotlib.norm import LogNorm
+from matplotlib.colors import LogNorm
 import pandas as pd
 
 import rowcolMatching_astropix_v3
@@ -50,18 +50,18 @@ def bindecode(full_file_name, outputfile):
 
 
 class RowColMatch:
-    def __init__(self):
+    def __init__(self, layer=1, mints=0, maxts=1, mintot=6, maxtot=15):
         rcmatch = "./rowcolmatch/rowcolmatch"
         if os.path.isfile(rcmatch) and os.access(rcmatch, os.X_OK):
             print("Found rowcolmatch executable")
-            def _rowcolmatch(*args):
-                return subprocess.run([rcmatch, *args])
+            def _rowcolmatch(file):
+                return subprocess.run([rcmatch, "-l", str(layer), "--mints", str(mints), "--maxts", str(maxts), "--mintot", str(mintot), "--maxtot", str(maxtot), file])
             self.rowcolmatch = _rowcolmatch
         else:
             print("Using the python rowcolmatch as a library")
-            self.rowcolmatch = rowcolMatching_astropix_v3.rowcolmatch
-    def __call__(self, *args):
-        return self.rowcolmatch(*args)
+            self.rowcolmatch = lambda file: rowcolMatching_astropix_v3.rowcolmatch(...)
+    def __call__(self, file):
+        return self.rowcolmatch(file)
 
 
 def hitmap(d, **kwargs):
@@ -76,11 +76,15 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--name", nargs='+', help="Name of file or files for a given run")
     parser.add_argument("-o", "--output", help="Name of csv output files")
     parser.add_argument("-l", "--layer", type=int, help="Number of layers to process (default=1)", default=1)
+    parser.add_argument("--force-decode", metavar="decode", action="store_true", default=False, help="Runs decoder even if output csv file already exists.")
     args = parser.parse_args()
-    for f in args.name:
-        bindecode(args.name, args.output)
-    rcmatch = RowColMatch()
-    rcmatch(args.output, layer=args.layer+1)
+    if os.path.isfile(args.output) and not args.decode:
+        print("Fil")
+    else:
+        for f in args.name:
+            bindecode(f, args.output)
+    rcmatch = RowColMatch(layer=args.layer+1)
+    rcmatch(args.output)
     data = pd.read_csv(args.output[:-4]+"_matched.csv")
     for layer in range(1,args.layer+1):
         for chip in range(4):
