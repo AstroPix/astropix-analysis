@@ -51,15 +51,27 @@ def bindecode(full_file_name, outputfile):
 
 class RowColMatch:
     def __init__(self, layer=1, mints=0, maxts=1, mintot=6, maxtot=15):
+        self.layer, self.mints, self.maxts, self.mintot, self.maxtot = layer, mints, maxts, mintot, maxtot
         rcmatch = "./rowcolmatch/rowcolmatch"
         if os.path.isfile(rcmatch) and os.access(rcmatch, os.X_OK):
             print("Found rowcolmatch executable")
             def _rowcolmatch(file):
-                return subprocess.run([rcmatch, "-l", str(layer), "--mints", str(mints), "--maxts", str(maxts), "--mintot", str(mintot), "--maxtot", str(maxtot), file])
+                return subprocess.run([rcmatch, "-l", str(self.layer), "--mints", str(self.mints), "--maxts", str(self.maxts), "--mintot", str(self.mintot), "--maxtot", str(self.maxtot), file])
             self.rowcolmatch = _rowcolmatch
         else:
             print("Using the python rowcolmatch as a library")
-            self.rowcolmatch = lambda file: rowcolMatching_astropix_v3.rowcolmatch(...)
+            def _rowcolmatch(file):
+                data = pd.read_csv(file)
+                dataf = data[(data.payload==4)&(data.location<35)]
+                print(f"{len(data)} decoded halfhits read, {len(dataf)} halfhits are valid ({100*len(dataf)/len(data):.2f}%).")
+                output = []
+                for layer in range(1, self.layer+1):
+                    for chip in range(4):
+                        datac = dataf[(dataf.chipID==chip)&(dataf.layer==layer)]
+                        output.append(rowcolMatching_astropix_v3.rowcolmatch(datac, fts=lambda x,y: x-y>=self.mints and x-y<=self.maxts, ftot=lambda x,y: x-y>=self.mintot and x-y<=self.maxtot))
+                        print(f"Layer {layer}, Chip {chip}: {len(datac)} halfhits found, {len(output[-1])} hits matched ({100*len(output[-1])*2/max(1, len(datac)):.2f}%).")
+                pd.concat(output).to_csv(f"{args.output[:-4]}_matched.csv")
+            self.rowcolmatch = _rowcolmatch
     def __call__(self, file):
         return self.rowcolmatch(file)
 
@@ -76,15 +88,19 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--name", nargs='+', help="Name of file or files for a given run")
     parser.add_argument("-o", "--output", help="Name of csv output files")
     parser.add_argument("-l", "--layer", type=int, help="Number of layers to process (default=1)", default=1)
-    parser.add_argument("--force-decode", metavar="decode", action="store_true", default=False, help="Runs decoder even if output csv file already exists.")
+    parser.add_argument("--force-decode", dest="decode", action="store_true", default=False, help="Runs decoder even if output csv file already exists.")
+    parser.add_argument("--force-match", dest="rcmatch", action="store_true", default=False, help="Runs row-col matching even if output csv file already exists.")
     args = parser.parse_args()
     if os.path.isfile(args.output) and not args.decode:
-        print("Fil")
+        print("Decoded file already exists, skipping decoding")
     else:
         for f in args.name:
             bindecode(f, args.output)
-    rcmatch = RowColMatch(layer=args.layer+1)
-    rcmatch(args.output)
+    if os.path.isfile(args.output[:-4]+"_matched.csv"):
+        print("Matched file already exists, skipping matching")
+    else:
+        rcmatch = RowColMatch(layer=args.layer+1)
+        rcmatch(args.output)
     data = pd.read_csv(args.output[:-4]+"_matched.csv")
     for layer in range(1,args.layer+1):
         for chip in range(4):
