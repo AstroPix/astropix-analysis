@@ -49,7 +49,7 @@ def decode(hit, sample_clock_period_ns: int = 5, use_negedge_ts: bool = True): #
         tot_total = 2**18 - 1 + ts2_dec - ts1_dec
     tot_us      = (tot_total * sample_clock_period_ns)/1000.0
     fpga_ts     = int.from_bytes(hit[10:14], 'big')
-    hit_data=[pack_len, layer, id, payload, row, col, tsneg1, ts1, tsfine1, tstdc1, tsneg2, ts2, tsfine2, tstdc2, ts1_dec, ts2_dec, tot_us, fpga_ts]
+    hit_data=[pack_len, layer, id, payload, row, col, tsneg1, ts1, tsfine1, tstdc1, tsneg2, ts2, tsfine2, tstdc2, ts1_dec, ts2_dec, tot_total, tot_us, fpga_ts]
     return hit_data
 
 def find_first_good_header_index(byte_data):
@@ -91,7 +91,8 @@ def main(args):
 
     row_0_list=['pack_len', 'layer', 'chipID', 'payload', 'row', 'col', 
                 'tsneg1', 'ts1', 'tsfine1', 'tstdc1', 'tsneg2', 'ts2', 
-                'tsfine2', 'tstdc2', 'ts1_dec', 'ts2_dec', 'tot_us', 'fpga_ts'] # no decode order or readout number here with just binary being read, I think
+                'tsfine2', 'tstdc2', 'ts1_dec', 'ts2_dec', 'tot_total', 'tot_us',
+                'fpga_ts'] # no decode order or readout number here with just binary being read, I think
     row_0_string=','.join(row_0_list)
     write_file.write(f'{row_0_string}\n')
 
