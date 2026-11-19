@@ -47,7 +47,7 @@ def decode(hit, sample_clock_period_ns: int = 5, use_negedge_ts: bool = True): #
         tot_total = ts2_dec - ts1_dec
     else:
         tot_total = 2**18 - 1 + ts2_dec - ts1_dec
-    tot_us      = (tot_total * sample_clock_period_ns)/1000.0
+    tot_us      = (tot_total * sample_clock_period_ns)/2.0/1000.0
     fpga_ts     = int.from_bytes(hit[10:14], 'big')
     hit_data=[pack_len, layer, id, payload, row, col, tsneg1, ts1, tsfine1, tstdc1, tsneg2, ts2, tsfine2, tstdc2, ts1_dec, ts2_dec, tot_total, tot_us, fpga_ts]
     return hit_data
